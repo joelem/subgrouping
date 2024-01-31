@@ -1,0 +1,67 @@
+---
+title: "Subgrouping project results"
+format: 
+  dashboard:
+    theme: darkly
+---
+
+# Main summary
+
+[Google doc here](https://docs.google.com/presentation/d/128HIh6xuP3iQVyFcwcPrlmyELyy4RhOKI6fXldFYyAI/edit?usp=sharing)
+
+![](summarytable.png)
+
+# V1
+
+<iframe src="Study 1b/v1/Subgrouping_Analysis.html" width="1100" height="1000">
+
+</iframe>
+
+# V2
+
+<iframe src="Study 1b/v2/Subgrouping-Analysis.html" width="1000" height="800">
+
+</iframe>
+
+# V3
+
+<iframe src="Study 1b/v3/Subgrouping-Analysis.html" width="1000" height="800">
+
+</iframe>
+
+# V4
+
+<iframe src="Study 1b/v4/Subgrouping-Analysis.html" width="1000" height="800">
+
+</iframe>
+
+# V5
+
+<iframe src="Study 1b/v5/Subgrouping-Analysis.html" width="1000" height="800">
+
+</iframe>
+
+# V6
+
+<iframe src="Study 1b/v6/Subgrouping-Analysis.html" width="1000" height="800">
+
+</iframe>
+
+# V7
+
+<iframe src="Study 1b/v7/Subgrouping-Analysis.html" width="1000" height="800">
+
+</iframe>
+
+# Self V1
+
+<iframe src="Self studies/self_pol1/Subgrouping-Self-Pol1-Analysis.html" width="1000" height="800">
+
+</iframe>
+
+# Self V2
+
+<iframe src="Self studies/self_pol2/Subgrouping-Self-Pol2-Analysis.html" width="1000" height="800">
+
+</iframe>
+
