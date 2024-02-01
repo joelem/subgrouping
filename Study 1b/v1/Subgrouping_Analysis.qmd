@@ -543,7 +543,7 @@ predictions = data %>%
   mutate(confidence = pick(everything()) %>% 
            filter(part_of_expt == 'prediction_confidence') %>% 
            pull(response)) %>% 
-    filter(part_of_expt == 'prediction')
+  filter(part_of_expt == 'prediction')
 
 #Compute Averages
 predictions_avg = predictions %>% 
@@ -588,8 +588,16 @@ predictions_avg = predictions %>%
 #| title: New Agent Prediction Model
 
 # https://datacolada.org/62
+#two line test
+breakpoint = .5
 
-print('prediction model')
+predictions %>% 
+  mutate(breakpt = ifelse(Deviant_threshold < breakpoint,
+                          paste0("<", breakpoint),
+                          paste0(breakpoint, "<="))) %>% 
+  group_by(breakpt) %>% 
+  do(tidy(lm(confidence ~ Deviant_threshold, .))) %>% 
+  mutate(p.value = round(p.value, 3))
 ```
 
 ## Moderator Analysis {.tabset title="Moderator: Last Opinion"}
@@ -644,8 +652,13 @@ predictions_maj_avg = predictions %>%
 ```{r}
 #| title: Model
 
-
-print('prediction moderator')
+predictions %>% 
+  mutate(breakpt = ifelse(Deviant_threshold < breakpoint,
+                          paste0("<", breakpoint),
+                          paste0(breakpoint, "<="))) %>% 
+  group_by(pred_maj, breakpt) %>% 
+  do(tidy(lm(confidence ~ Deviant_threshold, .))) %>% 
+  mutate(p.value = round(p.value, 3))
 ```
 
 # Misc
