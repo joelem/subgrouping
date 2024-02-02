@@ -582,22 +582,22 @@ predictions_avg = predictions %>%
   ggplotly()
 ```
 
-### Model
+### Model {.tabset title="Prediction Analysis"}
 
 ```{r}
-#| title: New Agent Prediction Model
+#| title: Model
 
-# https://datacolada.org/62
-#two line test
-breakpoint = .5
+predictionmod = predictions %>% 
+  mutate(deviance = as.factor(Deviant_threshold)) %>% 
+  lm(confidence ~ deviance, .)
 
-predictions %>% 
-  mutate(breakpt = ifelse(Deviant_threshold < breakpoint,
-                          paste0("<", breakpoint),
-                          paste0(breakpoint, "<="))) %>% 
-  group_by(breakpt) %>% 
-  do(tidy(lm(confidence ~ Deviant_threshold, .))) %>% 
-  mutate(p.value = round(p.value, 3))
+anova(predictionmod)
+```
+
+```{r}
+#| title: Deviance
+
+summary(emmeans(predictionmod, pairwise ~ deviance), infer=c(T,T))
 ```
 
 ## Moderator Analysis {.tabset title="Moderator: Last Opinion"}
@@ -645,7 +645,7 @@ predictions_maj_avg = predictions %>%
     scale_x_discrete(labels = seq(0,1,.25),
                      breaks = seq(0,1,.25))+
     facet_grid(~pred_maj)+
-    ggtitle("Majority Opinion?")) %>% 
+    ggtitle("Chose majority opinion?")) %>% 
   ggplotly()
 ```
 
@@ -653,12 +653,9 @@ predictions_maj_avg = predictions %>%
 #| title: Model
 
 predictions %>% 
-  mutate(breakpt = ifelse(Deviant_threshold < breakpoint,
-                          paste0("<", breakpoint),
-                          paste0(breakpoint, "<="))) %>% 
-  group_by(pred_maj, breakpt) %>% 
-  do(tidy(lm(confidence ~ Deviant_threshold, .))) %>% 
-  mutate(p.value = round(p.value, 3))
+  mutate(deviance = as.factor(Deviant_threshold)) %>% 
+  lm(confidence ~ deviance*pred_maj, .) %>% 
+  anova()
 ```
 
 # Misc
