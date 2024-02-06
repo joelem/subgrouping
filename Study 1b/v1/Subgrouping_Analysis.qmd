@@ -588,7 +588,8 @@ predictions_avg = predictions %>%
 #| title: Model
 
 predictionmod = predictions %>% 
-  mutate(deviance = as.factor(Deviant_threshold)) %>% 
+  mutate(deviance = factor(Deviant_threshold,
+                                   levels = seq(0,1,.25))) %>% 
   lm(confidence ~ deviance, .)
 
 anova(predictionmod)
