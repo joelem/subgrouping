@@ -1,0 +1,743 @@
+---
+title: "Subgrouping V3"
+format: 
+  dashboard:
+    theme: darkly
+---
+
+```{r}
+pacman::p_load(tidyverse,
+               table1,
+               ggplot2,
+               plotly,
+               tidymodels,
+               multilevelmod,
+               broom.mixed,
+               lme4,
+               emmeans,
+               lmerTest)
+emm_options(lmer.df = 'satterthwaite')
+emm_options(lmerTest.limit = 20000)
+#to run the dashboard, need to install development version of Quarto:
+#https://quarto.org/docs/dashboards/
+#Mac: https://github.com/quarto-dev/quarto-cli/releases/download/v1.5.4/quarto-1.5.4-macos.pkg
+```
+
+```{r}
+
+#Read and combine data files
+files = Sys.glob('data/batch 1/*.csv')
+data = files %>%
+  map(~ read_csv(., show_col_types = F)) %>% 
+  reduce(bind_rows)
+
+#Preprocess
+data = data %>% 
+  group_by(SubjID) %>% 
+  #pull out demographic responses into columns
+  mutate(age = pick(everything()) %>% 
+           filter(part_of_expt == 'demographics') %>% 
+           pull(`demo_2--response`),
+         gender = pick(everything()) %>% 
+           filter(part_of_expt == 'demographics') %>% 
+           pull(`demo_1--response`),
+         race = pick(everything()) %>% 
+           filter(part_of_expt == 'demographics') %>% 
+           pull(`demo_0--response`),
+         #did they pass ALL attention checks
+         passedattn = all(
+           #heart attack attention check
+           pick(everything()) %>% 
+             filter(part_of_expt == 'attentioncheck_heart') %>% 
+             pull(`attention_check_fatal_correctness`) == 'correct', 
+           #sorting attention check
+           pick(everything()) %>% 
+             filter(part_of_expt == 'attentioncheck_sort') %>% 
+             pull(`attention_check_sort_correctness`) == 'correct'),
+         #What was the majority opinion on last round
+         majority_lastopinion = pick(everything()) %>% 
+           filter(opinion_round == max(opinion_round, na.rm = T)) %>% 
+           count(stim_opinion) %>% 
+           slice_max(n) %>% 
+           pull(stim_opinion)%>% 
+           ifelse(length(.) < 2, ., NA), #if no majority, make NA
+         #What was the prediction about the new agent's opinion?
+         prediction = pick(everything()) %>% 
+           filter(part_of_expt == 'prediction') %>% 
+           pull(agreement_prediction)) %>% 
+  #correct for programming error (only use for V3/4/5/6)
+  mutate(prediction = ifelse(prediction == 'agree',  'disagree', 'agree')) %>% 
+  #Did new agent prediction match majority opinion on last round?
+  mutate(pred_maj = majority_lastopinion == prediction)
+```
+
+# Checks
+
+## Demographics {.tabset title="Demographics (Attention Check)"}
+
+```{r}
+#| title: Passed
+data %>% 
+  filter(passedattn == T) %>% 
+  select(SubjID, age, race, gender, Deviant_threshold) %>% 
+  distinct() %>% 
+  table1(~age+ race+ gender | Deviant_threshold, .)
+```
+
+```{r}
+#| title: Failed
+data %>% 
+  filter(passedattn == F) %>% 
+  select(SubjID, age, race, gender, Deviant_threshold) %>% 
+  distinct() %>% 
+  table1(~age+ race+ gender | Deviant_threshold, .)
+```
+
+```{r}
+#Keep only those who passed attention checks
+data = data %>% 
+  filter(passedattn == T)
+```
+
+## Learning Analysis 
+
+### Plot {.tabset title="Agent Learning Plots"}
+
+```{r}
+#| title: All Agents
+
+#Process the learning data
+learningtask = data %>%
+  filter(part_of_expt == 'learning_task') %>% 
+  mutate(corrresp = ifelse(response_correctness == 'correct', 1, 0))
+
+# Calculate averages
+learningavgs = learningtask %>% 
+  # First find averages by participants
+  group_by(SubjID, Deviant_threshold, opinion_round) %>% 
+  summarize(subaccuracy = mean(corrresp) *100) %>% 
+  # Then average again across participants
+  group_by(Deviant_threshold, opinion_round) %>% 
+  summarize(accuracy = mean(subaccuracy),
+            n = n(),
+            ci = qt(0.975,df=n-1)*sd(subaccuracy)/sqrt(n),
+            l.ci= accuracy-ci,
+            h.ci = accuracy+ci) %>% 
+  # Change deviance to factor for coloring
+  mutate(Deviant_threshold = as.factor(Deviant_threshold))
+
+#Plot
+(learningavgs %>%
+  ggplot(aes(x=opinion_round,
+             y=accuracy,
+             color = Deviant_threshold,
+             group = Deviant_threshold)) +
+  geom_ribbon(aes(y = accuracy,
+                  ymax = h.ci,
+                  ymin = l.ci),
+              alpha = .2) +
+  geom_point() +
+  geom_line() +
+  theme_bw() +
+  xlab('Round') +
+  ylab("Accuracy")+
+  facet_grid(.~ Deviant_threshold) +
+  scale_y_continuous(labels = seq(0,100,10),
+                     breaks = seq(0,100,10),
+                     limits = c(0,100)) +
+  scale_color_discrete(name = 'Deviation')) %>% 
+  ggplotly()
+```
+
+```{r}
+#| title: Deviant
+
+# Calculate averages
+learningavgs = learningtask %>% 
+  filter(stim_deviance == 'deviant') %>% 
+  # First find averages by participants
+  group_by(SubjID, Deviant_threshold, opinion_round) %>% 
+  summarize(subaccuracy = mean(corrresp) *100) %>% 
+  # Then average again across participants
+  group_by(Deviant_threshold, opinion_round) %>% 
+  summarize(accuracy = mean(subaccuracy),
+            n = n(),
+            ci = qt(0.975,df=n-1)*sd(subaccuracy)/sqrt(n),
+            l.ci= accuracy-ci,
+            h.ci = accuracy+ci) %>% 
+  # Change deviance to factor for coloring
+  mutate(Deviant_threshold = as.factor(Deviant_threshold))
+
+#Plot
+(learningavgs %>%
+  ggplot(aes(x=opinion_round,
+             y=accuracy,
+             color = Deviant_threshold,
+             group = Deviant_threshold)) +
+  geom_ribbon(aes(y = accuracy,
+                  ymax = h.ci,
+                  ymin = l.ci),
+              alpha = .2) +
+  geom_point() +
+  geom_line() +
+  theme_bw() +
+  xlab('Round') +
+  ylab("Accuracy")+
+  facet_grid(.~ Deviant_threshold) +
+  scale_y_continuous(labels = seq(0,100,10),
+                     breaks = seq(0,100,10),
+                     limits = c(0,100)) +
+  scale_color_discrete(name = 'Deviation')) %>% 
+  ggplotly()
+```
+
+```{r}
+#| title: Non-deviants
+
+# Calculate averages
+learningavgs = learningtask %>% 
+  filter(stim_deviance == 'nondeviant') %>% 
+  # First find averages by participants
+  group_by(SubjID, Deviant_threshold, opinion_round) %>% 
+  summarize(subaccuracy = mean(corrresp) *100) %>% 
+  # Then average again across participants
+  group_by(Deviant_threshold, opinion_round) %>% 
+  summarize(accuracy = mean(subaccuracy),
+            n = n(),
+            ci = qt(0.975,df=n-1)*sd(subaccuracy)/sqrt(n),
+            l.ci= accuracy-ci,
+            h.ci = accuracy+ci) %>% 
+  # Change deviance to factor for coloring
+  mutate(Deviant_threshold = as.factor(Deviant_threshold))
+
+#Plot
+(learningavgs %>%
+  ggplot(aes(x=opinion_round,
+             y=accuracy,
+             color = Deviant_threshold,
+             group = Deviant_threshold)) +
+  geom_ribbon(aes(y = accuracy,
+                  ymax = h.ci,
+                  ymin = l.ci),
+              alpha = .2) +
+  geom_point() +
+  geom_line() +
+  theme_bw() +
+  xlab('Round') +
+  ylab("Accuracy")+
+  facet_grid(.~ Deviant_threshold) +
+  scale_y_continuous(labels = seq(0,100,10),
+                     breaks = seq(0,100,10),
+                     limits = c(0,100)) +
+  scale_color_discrete(name = 'Deviation')) %>% 
+  ggplotly()
+```
+
+### Model {.tabset title="NonDeviant Analysis"}
+
+```{r}
+#| title: Model
+
+learningmod = learningtask %>% 
+  filter(stim_deviance == 'nondeviant') %>% 
+  mutate(corrresp = as.factor(corrresp),
+         Deviant_threshold = factor(Deviant_threshold,
+                                    levels= seq(0,1,.25))) %>% 
+  glmer(corrresp ~ opinion_round * Deviant_threshold +
+        (opinion_round | SubjID) +
+        (1 | stim_person_name),
+        family = binomial(link='logit'),
+           control= glmerControl(optimizer="bobyqa",
+                                optCtrl=list(maxfun=500000)),
+      data = .)
+
+#Overall significance
+car::Anova(learningmod)
+
+```
+
+```{r}
+#| title: Round
+
+#Main effect of opinion round
+summary(emtrends(learningmod, ~ 1, var="opinion_round"), infer= c(T,T))
+```
+
+```{r}
+#| title: Deviance
+
+#Main effect of deviance
+summary(emmeans(learningmod, pairwise ~ Deviant_threshold, infer= c(T,T)))
+```
+
+# Clustering
+
+## Similarity analysis
+
+### Plot
+
+```{r}
+#| title: Similarity Plot
+
+#Code the pairs
+similarity = data %>% 
+  filter(part_of_expt == 'similarity_rating') %>% 
+  mutate(devpair = str_remove(stim_deviance_num_gend, '[ M]') %>% 
+           str_remove('[ F]') %>% 
+           str_remove('[1-4]') %>% 
+           str_remove('[M]') %>% 
+           str_remove('[ M]') %>% 
+           str_remove('[F]') %>% 
+           str_remove('[1-4]')) %>% 
+  mutate(targetpair = ifelse(devpair == 'deviant,nondeviant' | devpair == 'nondeviant,deviant', 'DN', 'NN')) 
+
+similarity_sub = similarity %>% 
+  group_by(SubjID, Deviant_threshold, targetpair) %>% 
+  summarize(subavg = mean(response))
+
+similarity_avgs = similarity_sub %>% 
+  group_by(Deviant_threshold, targetpair) %>% 
+  summarize(avg = mean(subavg),
+            n = n(),
+            ci = qt(0.975,df=n-1)*sd(subavg)/sqrt(n),
+            l.ci = avg-ci,
+            h.ci = avg+ci)
+
+(similarity_sub %>% 
+    ggplot(aes(x = targetpair,
+               y = subavg))+
+    geom_violin()+
+    geom_point(alpha = .2)+
+    facet_grid(.~Deviant_threshold)+
+    scale_y_continuous(name= 'Average Similarity',
+                       breaks = seq(0,100,10))+
+    theme_bw()+
+    xlab('')+
+    geom_point(data=similarity_avgs,
+               aes(y=avg,
+                   color=targetpair),
+               size = 3,
+               position = position_nudge(x=.25))+
+    geom_errorbar(data=similarity_avgs,
+                  aes(y=avg,
+                      ymax=h.ci,
+                      ymin=l.ci,
+                      color=targetpair),
+                  width=.2,
+                  position = position_nudge(x=.25))+
+  guides(fill = 'none', color='none')) %>% 
+  ggplotly()
+```
+
+### Model {.tabset title="Similarity Analysis"}
+
+```{r}
+#| title: Model
+
+similaritymod = similarity %>% 
+  lmer(response ~ targetpair*Deviant_threshold +
+         (targetpair|SubjID),
+       REML = F,
+           control= lmerControl(optimizer="bobyqa",
+                                optCtrl=list(maxfun=500000)),
+       data = .)
+
+anova(similaritymod)
+```
+
+```{r}
+#| title: Interxn
+
+summary(emtrends(similaritymod, pairwise ~ targetpair, var = 'Deviant_threshold', infer= c(T,T)))
+```
+
+## ISM analysis
+
+### Plot
+
+```{r}
+#| eval: false 
+
+#Run the ISM using Julia
+library(JuliaCall)
+julia_setup(JULIA_HOME = "/Applications/Julia-1.8.app/Contents/Resources/julia/bin/")
+julia_source(file_name = '../clustering/InfiniteSimilarityModel.jl')
+
+runISM = function(X){
+  julia_assign('X', X)
+  julia_assign('chain', julia_eval('sample(ISM(X), SMC(), 5000);'))
+  P = julia_eval('clusterprob(chain)')
+  k = julia_eval('numclusters(chain)')
+  list(P = P, k = k)
+}
+```
+
+```{r}
+#| eval: false 
+
+#test if the function works as intended
+library(Matrix)
+clusterMatrix = function(k, obs){
+  M = matrix(1, nrow = obs, ncol = obs)
+  X = as.matrix(bdiag(rep(list(M), k)))
+  X*.99
+}
+X = clusterMatrix(k=3, obs=8)
+
+results = runISM(X)
+results$P
+mean(results$k)
+```
+
+```{r, eval = F}
+#| eval: false 
+
+#Create containers to record output
+subs = unique(data[,c('SubjID', 'Deviant_threshold')])
+subs$k = NA
+submats = vector('list', length(subs$SubjID))
+subprobmats = vector('list', length(subs$SubjID))
+#make similarity matrix
+for(i in 1:length(subs$SubjID)){
+  subdat = similarity[similarity$SubjID == subs$SubjID[i],]
+  #need unique names of the stimuli used
+  subdat$stim1 = sapply(subdat$stim_names, function(s) strsplit(s, ',')[[1]][1])
+  subdat$stim2 = sapply(subdat$stim_names, function(s) strsplit(s, ',')[[1]][2])
+  allstim = unique(c(subdat$stim1, subdat$stim2))
+  #use them to create matrix size
+  mat = matrix(nrow = length(allstim), ncol = length(allstim))
+  #name rows and columns by stimuli names so we can fill in
+  colnames(mat) = allstim
+  row.names(mat) = allstim
+  #fill in matrix!
+  for(row in 1:nrow(mat)){
+    for(col in 1:ncol(mat)){
+      if(row == col){ #dont have similarity to self, so give perfect similarity
+        mat[row, col] = 100
+        next
+      }
+      rname = row.names(mat)[row]
+      cname = colnames(mat)[col]
+      #find similarity response for pair
+      mat[row, col] = subdat$response[subdat$stim_names == paste0(rname, ',', cname) | subdat$stim_names == paste0(cname, ',', rname)]
+    }
+  }
+  subdat$dev1 = sapply(subdat$stim_deviance_num_gend, function(s) strsplit(s, ',')[[1]][1])
+  subdat$dev2 = sapply(subdat$stim_deviance_num_gend, function(s) strsplit(s, ',')[[1]][2])
+  devdf = unique(data.frame(stim = c(subdat$stim1, subdat$stim2), dev = c(subdat$dev1, subdat$dev2)))
+  devdf$dev = gsub('nondeviant ', '', devdf$dev)
+  for(b in 1:nrow(mat)){
+    colnames(mat)[b] = devdf$dev[devdf$stim == colnames(mat)[b]]
+    row.names(mat)[b] = devdf$dev[devdf$stim == row.names(mat)[b]]
+  }
+  #order so deviant always in upper left corner
+  mat = mat[order(colnames(mat), decreasing = F), order(colnames(mat), decreasing = F)]
+  
+  #normalize for Turing function 
+  mat = mat/100
+  
+  #save similarity matrix just in case
+  submats[[i]] = mat
+  
+  #cluster model
+  results = runISM(mat)
+  
+  #Save number of clusters
+  subs$k[i] = mean(results$k)
+  
+  #estimate probability matrix between agents
+  P = results$P
+  colnames(P) = colnames(mat)
+  row.names(P) = row.names(mat)
+  
+  #save probability matrix
+  subprobmats[[i]] = P
+  svMisc::progress(i, length(subs$SubjID))
+  
+  # par(mfrow=c(2,2))
+  # corrplot::corrplot(mat)
+  # corrplot::corrplot(P)
+  # corrplot::corrplot(mat, order = 'hclust')
+  # corrplot::corrplot(P, order = 'hclust')
+}
+
+#save the probability matrices & data frame so only have to run once (until something needs changing)
+saveRDS(submats, file = "subsimmats.rds")
+saveRDS(subprobmats, file = "subprobmats.rds")
+saveRDS(subs, file = "subs-kestimates.rds")
+```
+
+
+```{r}
+#| title: ISM Plot
+
+#Read in data made from above code chunks
+subprobmats = readRDS('subprobmats.rds')
+subs = readRDS('subs-kestimates.rds')
+
+kplot = subs %>% 
+  group_by(Deviant_threshold) %>% 
+  summarize(n = n(),
+            avg = mean(k),
+            ci = qt(.975, n-1)*sd(k)/sqrt(n),
+            low.ci = avg - ci,
+            hi.ci = avg + ci)
+
+(subs %>% 
+ggplot(aes(x = as.factor(Deviant_threshold),
+           y = k,
+           group = Deviant_threshold))+ 
+  geom_violin(draw_quantiles = c(0.25, 0.75),
+              linetype = "dashed") +
+  geom_violin(fill="transparent",
+              draw_quantiles = 0.5) +
+  geom_point(alpha = .2)+
+  theme_bw()+
+  scale_y_continuous(name = 'k (number of clusters)')+
+  geom_point(data=kplot,
+             aes(y = avg),
+             color = 'red')+
+  geom_errorbar(data=kplot,
+                aes(y = avg,
+                    ymax = hi.ci,
+                    ymin = low.ci),
+                color = 'red',
+                width = .2)+
+  scale_x_discrete(name = 'Deviance')) %>% 
+  ggplotly()
+```
+
+### Model {.tabset title="ISM Analysis"}
+
+```{r}
+#| title: Model
+
+ismmod = subs %>% 
+  mutate(Deviant_threshold = factor(Deviant_threshold,
+                                   levels = seq(0,1,.25))) %>% 
+  lm(k ~ Deviant_threshold, data = .)
+
+anova(ismmod)
+```
+
+```{r}
+#| title: Deviance
+
+summary(emmeans(ismmod, pairwise ~ Deviant_threshold), infer = c(T,T))
+```
+
+```{r}
+#| title: VS 2
+
+emmeans(ismmod, ~ Deviant_threshold) %>% 
+  test(., null = 2, side='<')
+```
+
+# Predictions
+
+## Prediction Analysis
+
+### Plot
+
+```{r}
+#| title: New Agent Prediction Plot
+
+#Pull out confidence rating into column
+predictions = data %>% 
+  mutate(confidence = pick(everything()) %>% 
+           filter(part_of_expt == 'prediction_confidence') %>% 
+           pull(response)) %>% 
+  filter(part_of_expt == 'prediction')
+
+#Compute Averages
+predictions_avg = predictions %>% 
+  group_by(Deviant_threshold) %>% 
+  summarize(n = n(),
+            m.conf = mean(confidence),
+            ci = qt(0.975,df=n-1)*sd(confidence)/sqrt(n),
+            l.ci= m.conf-ci,
+            h.ci = m.conf+ci)
+
+#Plot
+(predictions %>% 
+    ggplot(aes(x = as.factor(Deviant_threshold),
+               y = confidence,
+               group = Deviant_threshold))+ 
+    geom_violin()+
+    geom_point(alpha = .2)+
+    geom_point(data = predictions_avg,
+               aes(y = m.conf),
+               color = 'red',
+               size = 2)+
+    geom_errorbar(data = predictions_avg,
+                  aes(y = m.conf,
+                      ymax=h.ci,
+                      ymin=l.ci),
+                  color = 'red',
+                  width = .1)+
+    theme_bw()+
+    scale_y_continuous(labels = seq(0,100,10),
+                       breaks = seq(0,100,10),
+                       limits = c(0,100),
+                       name = 'Confidence')+
+    scale_x_discrete(labels = seq(0,1,.25),
+                       breaks = seq(0,1,.25),
+                       name = 'Deviance')) %>% 
+  ggplotly()
+```
+
+### Model {.tabset title="Prediction Analysis"}
+
+```{r}
+#| title: Model
+
+predictionmod = predictions %>% 
+  mutate(deviance = factor(Deviant_threshold,
+                                   levels = seq(0,1,.25))) %>% 
+  lm(confidence ~ deviance, .)
+
+anova(predictionmod)
+```
+
+```{r}
+#| title: Deviance
+
+summary(emmeans(predictionmod, pairwise ~ deviance), infer=c(T,T))
+```
+
+## Moderator Analysis 
+
+### Moderator Last Opinion {.tabset title="Moderator: Last Opinion"}
+
+```{r}
+#| title: Table
+
+table1(~pred_maj | Deviant_threshold, predictions)
+```
+
+```{r}
+#| title: Plot
+
+predictions_maj_avg = predictions %>% 
+  group_by(Deviant_threshold, pred_maj) %>% 
+  summarize(n = n(),
+            m.conf = mean(confidence),
+            ci = qt(0.975,df=n-1)*sd(confidence)/sqrt(n),
+            l.ci= m.conf-ci,
+            h.ci = m.conf+ci)
+
+(predictions %>% 
+    ggplot(aes(x = as.factor(Deviant_threshold),
+               y = confidence,
+               group = Deviant_threshold))+ 
+    geom_violin()+
+    geom_point(data = predictions_maj_avg,
+               aes(y = m.conf),
+               color = 'red',
+               size = 2)+
+    geom_errorbar(data = predictions_maj_avg,
+                  aes(y = m.conf,
+                      ymax=h.ci,
+                      ymin=l.ci),
+                  color = 'red',
+                  width = .1)+
+    geom_point(alpha = .2)+
+    theme_bw()+
+    xlab('Deviance')+
+    ylab("Confidence")+
+  scale_y_continuous(labels = seq(0,100,10),
+                     breaks = seq(0,100,10),
+                     limits = c(0,100))+
+    scale_x_discrete(labels = seq(0,1,.25),
+                     breaks = seq(0,1,.25))+
+    facet_grid(~pred_maj)+
+    ggtitle("Chose majority opinion?")) %>% 
+  ggplotly()
+```
+
+```{r}
+#| title: Model
+
+predictions %>% 
+  mutate(deviance = as.factor(Deviant_threshold)) %>% 
+  lm(confidence ~ deviance*pred_maj, .) %>% 
+  anova()
+
+test = predictions %>% 
+  mutate(deviance = as.factor(Deviant_threshold)) %>% 
+  lm(confidence ~ deviance*pred_maj, .)
+```
+
+### Moderator PNS {.tabset title="Moderator: PNS"}
+
+```{r}
+#| title: Table
+
+#table1(~pred_maj | Deviant_threshold, predictions)
+print('table')
+```
+
+```{r}
+#| title: Plot
+
+print('plot')
+
+# predictions_maj_avg = predictions %>% 
+#   group_by(Deviant_threshold, pred_maj) %>% 
+#   summarize(n = n(),
+#             m.conf = mean(confidence),
+#             ci = qt(0.975,df=n-1)*sd(confidence)/sqrt(n),
+#             l.ci= m.conf-ci,
+#             h.ci = m.conf+ci)
+# 
+# (predictions %>% 
+#     ggplot(aes(x = as.factor(Deviant_threshold),
+#                y = confidence,
+#                group = Deviant_threshold))+ 
+#     geom_violin()+
+#     geom_point(data = predictions_maj_avg,
+#                aes(y = m.conf),
+#                color = 'red',
+#                size = 2)+
+#     geom_errorbar(data = predictions_maj_avg,
+#                   aes(y = m.conf,
+#                       ymax=h.ci,
+#                       ymin=l.ci),
+#                   color = 'red',
+#                   width = .1)+
+#     geom_point(alpha = .2)+
+#     theme_bw()+
+#     xlab('Deviance')+
+#     ylab("Confidence")+
+#   scale_y_continuous(labels = seq(0,100,10),
+#                      breaks = seq(0,100,10),
+#                      limits = c(0,100))+
+#     scale_x_discrete(labels = seq(0,1,.25),
+#                      breaks = seq(0,1,.25))+
+#     facet_grid(~pred_maj)+
+#     ggtitle("Chose majority opinion?")) %>% 
+#   ggplotly()
+```
+
+```{r}
+#| title: Model
+
+print('model')
+
+# predictions %>% 
+#   mutate(deviance = as.factor(Deviant_threshold)) %>% 
+#   lm(confidence ~ deviance*pred_maj, .) %>% 
+#   anova()
+```
+
+# Misc
+
+```{r}
+#| title: Order of deviant across rounds
+
+data %>% 
+  filter(stim_deviance == 'deviant' & part_of_expt == 'learning_task') %>% 
+  mutate(trialnum = str_sub(dynamicVars_key, -1)) %>% 
+  table1(~ trialnum | opinion_round, ., caption= 'Opinion Round')
+
+```

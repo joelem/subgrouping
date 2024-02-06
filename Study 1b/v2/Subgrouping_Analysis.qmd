@@ -608,7 +608,6 @@ summary(emmeans(predictionmod, pairwise ~ deviance), infer=c(T,T))
 ```{r}
 #| title: Table
 
-table1(~pred_maj, predictions)
 table1(~pred_maj | Deviant_threshold, predictions)
 ```
 
