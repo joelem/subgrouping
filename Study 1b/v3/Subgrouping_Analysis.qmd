@@ -70,7 +70,7 @@ data = data %>%
   #Did new agent prediction match majority opinion on last round?
   mutate(pred_maj = majority_lastopinion == prediction)
 
-#calculate the PNS score (only for V3/V4/V5/V6)
+#calculate the PNS score (only for V3/V4/V5/V6/V7)
 data = data %>% 
   # parse json responses into own columns
   group_by(SubjID) %>% 
@@ -78,7 +78,7 @@ data = data %>%
   mutate(json = pick(responses)) %>% 
   mutate(json = map(pick(json),
                     ~ fromJSON(responses) %>%
-                      as.tibble() %>% 
+                      as_tibble() %>% 
                       mutate_if(is.character,as.numeric))) %>% 
   unnest(json) %>%
   select(SubjID, Q0:Q3) %>% 
@@ -692,10 +692,6 @@ predictions %>%
   mutate(deviance = as.factor(Deviant_threshold)) %>% 
   lm(confidence ~ deviance*pred_maj, .) %>% 
   anova()
-
-test = predictions %>% 
-  mutate(deviance = as.factor(Deviant_threshold)) %>% 
-  lm(confidence ~ deviance*pred_maj, .)
 ```
 
 ### Moderator PNS {.tabset title="Moderator: PNS"}
