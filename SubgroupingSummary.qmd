@@ -31,13 +31,13 @@ format:
 
 # V4
 
-<iframe src="Study 1b/v4/Subgrouping-Analysis.html" width="1000" height="800">
+<iframe src="Study 1b/v4/Subgrouping_Analysis.html" width="100%" height="100%">
 
 </iframe>
 
 # V5
 
-<iframe src="Study 1b/v5/Subgrouping-Analysis.html" width="1000" height="800">
+<iframe src="Study 1b/v5/Subgrouping_Analysis.html" width="100%" height="100%">
 
 </iframe>
 
