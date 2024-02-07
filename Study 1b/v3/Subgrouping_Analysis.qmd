@@ -83,7 +83,9 @@ data = data %>%
   unnest(json) %>%
   select(SubjID, Q0:Q3) %>% 
   # reverse code Q2 if answer was given
-  mutate(Q2 = ifelse(!is.na(Q2), 7 - Q2, NA)) %>%  
+  mutate(Q2 = ifelse(!is.na(Q2),
+                     7 - Q2,
+                     NA)) %>%  
   # Count how many responses given
   mutate(nresp = rowSums(!is.na(pick(Q0:Q3)))) %>%
   # If more than 3, get PNS score, otherwise NA
