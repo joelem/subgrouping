@@ -5,6 +5,16 @@ format:
     theme: darkly
 ---
 
+# Design
+
+::: {.card title="Summary"}
+
+Same as V3 (highlighting group), but only 25 deviancy and 50 people
+
+A check for the button issue (not for paper)
+
+:::
+
 ```{r}
 pacman::p_load(tidyverse,
                table1,

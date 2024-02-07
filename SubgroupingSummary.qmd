@@ -7,9 +7,51 @@ format:
 
 # Main summary
 
+## Overview {.tabset title="Overview"}
+
+::: {.card title="Table"}
+
 [Google doc here](https://docs.google.com/presentation/d/128HIh6xuP3iQVyFcwcPrlmyELyy4RhOKI6fXldFYyAI/edit?usp=sharing)
 
 ![](summarytable.png)
+:::
+
+
+::: {.card title="Summary"}
+
+- Effects are highly replicable irrespective of group framing, #agents, #issues, or sample n
+
+- People are learning and creating clusters that exclude the deviant
+
+- Is this the first paper that tests continuous deviance to identify threshold of when deviant gets pushed out? 
+
+- Confidence only u-shaped when it’s Ps own group and groups are explicitly labeled suggesting increasing stereotype change in 1b’s and only subtyping in self studies
+
+- Look more closely at non-non similarity ratings in 1b; these drop too as deviance increases! Whole structure is changing some bc of one person. 
+
+- One possibility is paper is 1b.1-4 then self 2 (bc deviance is yolked to agents same as 1b) and then self 1
+
+- Demonstrates how easily people learn structure, how it changes with increased deviance, that you can get subtyping at high levels of deviance with implications for ID with own group
+
+:::
+
+
+::: {.card title="Ideas"}
+
+Potential Intermediary Studies to bridge 1b and self:
+
+- For 1b, add a high/low visual cue condition on political variability (descriptive norm) to beginning of study.
+
+- For self, make agent responses to political statements based on actual political party positions.
+
+:::
+
+::: {.card title="Materials"}
+
+![](Design.pdf){height=100%}
+
+:::
+
 
 # 1b.1
 
@@ -44,13 +86,13 @@ format:
 
 # Self.1
 
-<iframe src="Self studies/self_pol1/Subgrouping-Self-Pol1-Analysis.html" width="1000" height="800">
+<iframe src="Self studies/self_pol1/Subgrouping_Analysis.html" width="100%" height="100%">
 
 </iframe>
 
 # Self.2
 
-<iframe src="Self studies/self_pol2/Subgrouping-Self-Pol2-Analysis.html" width="1000" height="800">
+<iframe src="Self studies/self_pol2/Subgrouping_Analysis.html" width="100%" height="100%">
 
 </iframe>
 

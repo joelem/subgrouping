@@ -5,6 +5,24 @@ format:
     theme: darkly
 ---
 
+# Design
+
+::: {.card title="Summary"}
+
+Bridge between early 1B studies and self studies
+
+6 agents, 12 issues
+
+Method changes: 
+
+- First instructions now include reference to political party (either Democratic or Republican”: “On the screens that follow you're going to learn about a collection of registered [party] we polled on a series of political issues.” 
+
+- After completing the new agent task, participants then selected the party they most identified with (Democratic, Republican, Independent, or none of these) and reported how strongly they identify with their party on a sliding scale from “not at all” to “very strongly”. 
+
+- PNS scale added.
+
+:::
+
 ```{r}
 pacman::p_load(tidyverse,
                table1,
@@ -761,3 +779,16 @@ data %>%
   mutate(trialnum = str_sub(dynamicVars_key, -1)) %>% 
   table1(~ trialnum | opinion_round, ., caption= 'Opinion Round')
 ```
+
+# Notes
+
+::: {.card title="Things to note"}
+
+- The moderator for the prediction of the new agent's choice is operationalized as whether the prediction matched the majority opinion in the last opinion round
+
+:::
+
+::: {.card title="Unresolved"}
+
+- U shape analysis, affects all studies
+:::

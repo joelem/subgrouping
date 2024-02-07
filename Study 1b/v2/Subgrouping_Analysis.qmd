@@ -5,6 +5,17 @@ format:
     theme: darkly
 ---
 
+# Design 
+::: {.card title="Summary"}
+
+Testing the effect of deviance on similarity-based structure and certainty.
+
+Hypothesis: We predict that as a new agent’s deviance from the group stereotype increases there will be a transition from group updating to subgroup formation to subtype formation. This will be reflected in participants’ similarity-rating derived dendrograms.
+
+Method changes: 6 agents, 12 issues
+
+:::
+
 ```{r}
 pacman::p_load(tidyverse,
                table1,
@@ -671,3 +682,12 @@ data %>%
   table1(~ trialnum | opinion_round, ., caption= 'Opinion Round')
 
 ```
+
+# Notes
+
+::: {.card title="Unresolved"}
+
+- U shaped analysis, issue for all studies
+
+
+:::

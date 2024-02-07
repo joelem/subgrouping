@@ -5,6 +5,26 @@ format:
     theme: darkly
 ---
 
+# Design
+
+::: {.card title="Summary"}
+
+Testing the effect of deviance on similarity-based structure and certainty.
+
+Hypothesis: We predict that as a new agent’s deviance from the group stereotype increases there will be a transition from group updating to subgroup formation to subtype formation. This will be reflected in participants’ similarity-rating derived dendrograms. Same as V3
+
+Method changes: 
+
+- only 25%/50%/75% deviancy
+
+- 600 participants (increased from 300)
+
+- PNS scale added
+
+Note:  data for prediction values are corrected in R script due to coding error
+
+:::
+
 ```{r}
 pacman::p_load(tidyverse,
                table1,
@@ -761,3 +781,15 @@ data %>%
   mutate(trialnum = str_sub(dynamicVars_key, -1)) %>% 
   table1(~ trialnum | opinion_round, ., caption= 'Opinion Round')
 ```
+
+# Notes
+
+::: {.card title="Things to note"}
+- The PNS moderator is a median split
+
+:::
+
+::: {.card title="Unresolved"}
+- U shaped analysis, issue for all studies
+
+:::
