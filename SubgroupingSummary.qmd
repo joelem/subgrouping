@@ -11,27 +11,46 @@ format:
 
 ![](summarytable.png)
 
-# V1
+# 1b.1
 
 <iframe src="Study 1b/v1/Subgrouping_Analysis.html" width="100%" height="100%">
 
 </iframe>
 
-# V2
+# 1b.2
 
 <iframe src="Study 1b/v2/Subgrouping_Analysis.html" width="100%" height="100%">
 
 </iframe>
 
-# V3
+# 1b.3
 
 <iframe src="Study 1b/v3/Subgrouping_Analysis.html" width="100%" height="100%">
 
 </iframe>
 
-# V4
+# 1b.4
 
 <iframe src="Study 1b/v4/Subgrouping_Analysis.html" width="100%" height="100%">
+
+</iframe>
+
+
+# 1b.5
+
+<iframe src="Study 1b/v7/Subgrouping_Analysis.html" width="100%" height="100%">
+
+</iframe>
+
+# Self.1
+
+<iframe src="Self studies/self_pol1/Subgrouping-Self-Pol1-Analysis.html" width="1000" height="800">
+
+</iframe>
+
+# Self.2
+
+<iframe src="Self studies/self_pol2/Subgrouping-Self-Pol2-Analysis.html" width="1000" height="800">
 
 </iframe>
 
@@ -43,25 +62,6 @@ format:
 
 # V6
 
-<iframe src="Study 1b/v6/Subgrouping-Analysis.html" width="1000" height="800">
+<iframe src="Study 1b/v6/Subgrouping_Analysis.html" width="100%" height="100%">
 
 </iframe>
-
-# V7
-
-<iframe src="Study 1b/v7/Subgrouping-Analysis.html" width="1000" height="800">
-
-</iframe>
-
-# Self V1
-
-<iframe src="Self studies/self_pol1/Subgrouping-Self-Pol1-Analysis.html" width="1000" height="800">
-
-</iframe>
-
-# Self V2
-
-<iframe src="Self studies/self_pol2/Subgrouping-Self-Pol2-Analysis.html" width="1000" height="800">
-
-</iframe>
-
