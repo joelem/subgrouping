@@ -15,7 +15,8 @@ pacman::p_load(tidyverse,
                broom.mixed,
                lme4,
                emmeans,
-               lmerTest)
+               lmerTest,
+               jsonlite)
 emm_options(lmer.df = 'satterthwaite')
 emm_options(lmerTest.limit = 20000)
 #to run the dashboard, need to install development version of Quarto:
@@ -24,7 +25,6 @@ emm_options(lmerTest.limit = 20000)
 ```
 
 ```{r}
-
 #Read and combine data files
 files = Sys.glob('data/batch 1/*.csv')
 data = files %>%
@@ -69,6 +69,33 @@ data = data %>%
   mutate(prediction = ifelse(prediction == 'agree',  'disagree', 'agree')) %>% 
   #Did new agent prediction match majority opinion on last round?
   mutate(pred_maj = majority_lastopinion == prediction)
+
+#calculate the PNS score (only for V3/V4/V5/V6)
+data = data %>% 
+  # parse json responses into own columns
+  group_by(SubjID) %>% 
+  filter(part_of_expt == 'personality_survey') %>% 
+  mutate(json = pick(responses)) %>% 
+  mutate(json = map(pick(json),
+                    ~ fromJSON(responses) %>%
+                      as.tibble() %>% 
+                      mutate_if(is.character,as.numeric))) %>% 
+  unnest(json) %>%
+  select(SubjID, Q0:Q3) %>% 
+  # reverse code Q2 if answer was given
+  mutate(Q2 = ifelse(!is.na(Q2), 7 - Q2, NA)) %>%  
+  # Count how many responses given
+  mutate(nresp = rowSums(!is.na(pick(Q0:Q3)))) %>%
+  # If more than 3, get PNS score, otherwise NA
+  mutate(pns = case_when(pick(nresp) >= 3 ~ rowMeans(pick(Q0:Q3), 
+                                                    na.rm = TRUE),
+                         pick(nresp) < 3 ~ NA)) %>% 
+  #median split across the full sample
+  ungroup() %>% 
+  mutate(pns_med = ifelse(pns > median(pns, na.rm=T),"High","Low")) %>% 
+  select(SubjID, contains('pns')) %>% 
+  #Merge PNS scores with data
+  merge(., data)
 ```
 
 # Checks
@@ -544,6 +571,7 @@ emmeans(ismmod, ~ Deviant_threshold) %>%
 
 #Pull out confidence rating into column
 predictions = data %>% 
+  group_by(SubjID) %>% 
   mutate(confidence = pick(everything()) %>% 
            filter(part_of_expt == 'prediction_confidence') %>% 
            pull(response)) %>% 
@@ -673,61 +701,56 @@ test = predictions %>%
 ```{r}
 #| title: Table
 
-#table1(~pred_maj | Deviant_threshold, predictions)
-print('table')
+table1(~pns_med | Deviant_threshold, predictions)
 ```
 
 ```{r}
 #| title: Plot
 
-print('plot')
+predictions_pns_avg = predictions %>%
+  group_by(Deviant_threshold, pns_med) %>%
+  summarize(n = n(),
+            m.conf = mean(confidence),
+            ci = qt(0.975,df=n-1)*sd(confidence)/sqrt(n),
+            l.ci= m.conf-ci,
+            h.ci = m.conf+ci)
 
-# predictions_maj_avg = predictions %>% 
-#   group_by(Deviant_threshold, pred_maj) %>% 
-#   summarize(n = n(),
-#             m.conf = mean(confidence),
-#             ci = qt(0.975,df=n-1)*sd(confidence)/sqrt(n),
-#             l.ci= m.conf-ci,
-#             h.ci = m.conf+ci)
-# 
-# (predictions %>% 
-#     ggplot(aes(x = as.factor(Deviant_threshold),
-#                y = confidence,
-#                group = Deviant_threshold))+ 
-#     geom_violin()+
-#     geom_point(data = predictions_maj_avg,
-#                aes(y = m.conf),
-#                color = 'red',
-#                size = 2)+
-#     geom_errorbar(data = predictions_maj_avg,
-#                   aes(y = m.conf,
-#                       ymax=h.ci,
-#                       ymin=l.ci),
-#                   color = 'red',
-#                   width = .1)+
-#     geom_point(alpha = .2)+
-#     theme_bw()+
-#     xlab('Deviance')+
-#     ylab("Confidence")+
-#   scale_y_continuous(labels = seq(0,100,10),
-#                      breaks = seq(0,100,10),
-#                      limits = c(0,100))+
-#     scale_x_discrete(labels = seq(0,1,.25),
-#                      breaks = seq(0,1,.25))+
-#     facet_grid(~pred_maj)+
-#     ggtitle("Chose majority opinion?")) %>% 
-#   ggplotly()
+(predictions %>%
+    ggplot(aes(x = as.factor(Deviant_threshold),
+               y = confidence,
+               group = Deviant_threshold))+
+    geom_violin()+
+    geom_point(data = predictions_pns_avg,
+               aes(y = m.conf),
+               color = 'red',
+               size = 2)+
+    geom_errorbar(data = predictions_pns_avg,
+                  aes(y = m.conf,
+                      ymax=h.ci,
+                      ymin=l.ci),
+                  color = 'red',
+                  width = .1)+
+    geom_point(alpha = .2)+
+    theme_bw()+
+    xlab('Deviance')+
+    ylab("Confidence")+
+  scale_y_continuous(labels = seq(0,100,10),
+                     breaks = seq(0,100,10),
+                     limits = c(0,100))+
+    scale_x_discrete(labels = seq(0,1,.25),
+                     breaks = seq(0,1,.25))+
+    facet_grid(~pns_med)+
+    ggtitle("PNS Median Split")) %>%
+  ggplotly()
 ```
 
 ```{r}
 #| title: Model
 
-print('model')
-
-# predictions %>% 
-#   mutate(deviance = as.factor(Deviant_threshold)) %>% 
-#   lm(confidence ~ deviance*pred_maj, .) %>% 
-#   anova()
+predictions %>%
+  mutate(deviance = as.factor(Deviant_threshold)) %>%
+  lm(confidence ~ deviance*pns_med, .) %>%
+  anova()
 ```
 
 # Misc
