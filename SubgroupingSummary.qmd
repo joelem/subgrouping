@@ -86,13 +86,13 @@ Potential Intermediary Studies to bridge 1b and self:
 
 # Self.1
 
-<iframe src="Self studies/self_pol1/Subgrouping_Analysis.html" width="1000" height="100%">
+<iframe src="Self studies/self_pol1/Subgrouping_Analysis.html" width="100%" height="1000">
 
 </iframe>
 
 # Self.2
 
-<iframe src="Self studies/self_pol2/Subgrouping_Analysis.html" width="1000" height="100%">
+<iframe src="Self studies/self_pol2/Subgrouping_Analysis.html" width="100%" height="1000">
 
 </iframe>
 
