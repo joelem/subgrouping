@@ -148,6 +148,8 @@ learningtask = data %>%
   filter(part_of_expt == 'learning_task' &
            !grepl('participant', opinion_round)) %>% 
   mutate(corrresp = ifelse(response_correctness == 'correct', 1, 0))
+  #calculate correct response
+  #mutate(corrresp = ifelse(participant_response == stim_opinion, 1, 0))
 
 # Calculate averages
 learningavgs = learningtask %>% 
@@ -585,6 +587,22 @@ predictions_avg = predictions %>%
 ### Model {.tabset title="Prediction Analysis"}
 
 ```{r}
+#| title: '2LineTest'
+
+belowmod = predictions %>% 
+  filter(Deviant_threshold <= .5) %>%
+  lm(confidence ~ Deviant_threshold, data = .)
+
+abovemod = predictions %>% 
+  filter(Deviant_threshold >= .5) %>%
+  lm(confidence ~ Deviant_threshold, data = .)
+
+list(`below_.5` = belowmod, `above_.5` = abovemod) %>% 
+  map_df(., tidy, conf.int=TRUE, .id = 'model') %>%
+  filter(term !="(Intercept)")
+```
+
+```{r}
 #| title: Model
 
 predictionmod = predictions %>% 
@@ -649,6 +667,31 @@ predictions_par_avg = predictions %>%
     facet_grid(~pred_par)+
     ggtitle("Chose own opinion?")) %>% 
   ggplotly()
+```
+
+```{r}
+#| title: '2LineTest'
+
+belowmod = predictions %>% 
+  filter(Deviant_threshold <= .5) %>%
+  group_by(pred_par) %>% 
+  do(tidy(lm(confidence ~ Deviant_threshold, data = .), conf.int=T)) %>% 
+  filter(term !="(Intercept)") %>% 
+  mutate(id = 'below_.5') %>% 
+  na.omit()
+  
+
+abovemod = predictions %>% 
+  filter(Deviant_threshold >= .5) %>%
+  group_by(pred_par) %>% 
+  do(tidy(lm(confidence ~ Deviant_threshold, data = .), conf.int=T)) %>% 
+  filter(term !="(Intercept)")%>% 
+  mutate(id = 'above_.5') %>% 
+  na.omit()
+
+bind_rows(belowmod, abovemod) %>% 
+  arrange(pred_par, desc(id)) %>% 
+  relocate(pred_par, id)
 ```
 
 ```{r}

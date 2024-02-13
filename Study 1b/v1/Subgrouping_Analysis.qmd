@@ -597,6 +597,22 @@ predictions_avg = predictions %>%
 ### Model {.tabset title="Prediction Analysis"}
 
 ```{r}
+#| title: '2LineTest'
+
+belowmod = predictions %>% 
+  filter(Deviant_threshold <= .5) %>%
+  lm(confidence ~ Deviant_threshold, data = .)
+
+abovemod = predictions %>% 
+  filter(Deviant_threshold >= .5) %>%
+  lm(confidence ~ Deviant_threshold, data = .)
+
+list(`below_.5` = belowmod, `above_.5` = abovemod) %>% 
+  map_df(., tidy, conf.int=TRUE, .id = 'model') %>%
+  filter(term !="(Intercept)")
+```
+
+```{r}
 #| title: Model
 
 predictionmod = predictions %>% 
@@ -659,6 +675,29 @@ predictions_maj_avg = predictions %>%
     facet_grid(~pred_maj)+
     ggtitle("Chose majority opinion?")) %>% 
   ggplotly()
+```
+
+```{r}
+#| title: '2LineTest'
+
+belowmod = predictions %>% 
+  filter(Deviant_threshold <= .5) %>%
+  group_by(pred_maj) %>% 
+  do(tidy(lm(confidence ~ Deviant_threshold, data = .), conf.int=T)) %>% 
+  filter(term !="(Intercept)") %>% 
+  mutate(id = 'below_.5')
+  
+
+abovemod = predictions %>% 
+  filter(Deviant_threshold >= .5) %>%
+  group_by(pred_maj) %>% 
+  do(tidy(lm(confidence ~ Deviant_threshold, data = .), conf.int=T)) %>% 
+  filter(term !="(Intercept)")%>% 
+  mutate(id = 'above_.5')
+
+bind_rows(belowmod, abovemod) %>% 
+  arrange(pred_maj, desc(id)) %>% 
+  relocate(pred_maj, id)
 ```
 
 ```{r}
