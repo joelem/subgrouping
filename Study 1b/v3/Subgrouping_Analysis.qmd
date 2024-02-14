@@ -859,7 +859,5 @@ data %>%
 
 ::: {.card title="Unresolved"}
 
-- U shaped analysis, issue for all studies
-
 - The last opinion moderator is barely significant and none really show the U shape
 :::

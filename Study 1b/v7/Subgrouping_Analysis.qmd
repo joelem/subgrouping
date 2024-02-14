@@ -855,5 +855,5 @@ data %>%
 
 ::: {.card title="Unresolved"}
 
-- U shape analysis, affects all studies
+- all good
 :::

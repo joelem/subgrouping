@@ -726,7 +726,7 @@ data %>%
 
 ::: {.card title="Unresolved"}
 
-- U shaped analysis, issue for all studies
+- all good
 
 
 :::

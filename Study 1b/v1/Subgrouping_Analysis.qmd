@@ -732,5 +732,5 @@ Participants are demonstrating that they are learning about the deviant agent, b
 
 ::: {.card title="Unresolved"}
 
-- U shaped analysis, issue for all studies
+-all good
 :::

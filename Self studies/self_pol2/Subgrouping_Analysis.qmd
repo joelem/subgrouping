@@ -839,11 +839,8 @@ anova(polmod)
 ::: {.card title="Unresolved"}
 
 - Similarity Analysis, how to conduct results given the exp design (majority x participant x deviants)
+
   - Does it make sense to break into deviant/nondeviant learning given design?
 
-- Learning analysis, how correctness was coded in the learning phase (is button an issue?, show data examples)
-
 - Last opinion analysis, how to operationalize given the design.
-
-- U shape analysis, affects all studies
 :::

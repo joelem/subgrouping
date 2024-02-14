@@ -148,8 +148,6 @@ learningtask = data %>%
   filter(part_of_expt == 'learning_task' &
            !grepl('participant', opinion_round)) %>% 
   mutate(corrresp = ifelse(response_correctness == 'correct', 1, 0))
-  #calculate correct response
-  #mutate(corrresp = ifelse(participant_response == stim_opinion, 1, 0))
 
 # Calculate averages
 learningavgs = learningtask %>% 
@@ -848,8 +846,7 @@ anova(polmod)
 
 ::: {.card title="Unresolved"}
 
-- Learning analysis, how correctness was coded in the learning phase (is button an issue?, show data examples)
+- all good
 
-- U shape analysis, affects all studies
 :::
 
