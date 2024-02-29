@@ -224,6 +224,13 @@ summary(emtrends(learningmod, ~ 1, var="opinion_round"), infer= c(T,T))
 summary(emmeans(learningmod, pairwise ~ Deviant_threshold, infer= c(T,T)))
 ```
 
+```{r}
+#| title: Interaction
+
+#interaction
+summary(emtrends(learningmod, pairwise ~ Deviant_threshold, var = 'opinion_round', infer= c(T,T)))
+```
+
 # Clustering
 
 ## Similarity analysis 
@@ -355,7 +362,7 @@ summary(emtrends(similaritymod, pairwise ~ targetpair, var = 'Deviant_threshold'
 
 #Run the ISM using Julia
 library(JuliaCall)
-julia_setup(JULIA_HOME = "/Applications/Julia-1.8.app/Contents/Resources/julia/bin/")
+julia_setup(JULIA_HOME = "/Users/JEM/.juliaup/bin/")
 julia_source(file_name = '../clustering/InfiniteSimilarityModel.jl')
 
 runISM = function(X){
@@ -365,6 +372,7 @@ runISM = function(X){
   k = julia_eval('numclusters(chain)')
   list(P = P, k = k)
 }
+#https://github.com/TuringLang/Turing.jl/issues/2007
 ```
 
 ```{r}

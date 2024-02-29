@@ -218,6 +218,13 @@ summary(emtrends(learningmod, ~ 1, var="opinion_round"), infer= c(T,T))
 summary(emmeans(learningmod, pairwise ~ Deviant_threshold, infer= c(T,T)))
 ```
 
+```{r}
+#| title: Interaction
+
+#interaction
+summary(emtrends(learningmod, pairwise ~ Deviant_threshold, var = 'opinion_round', infer= c(T,T)))
+```
+
 # Clustering
 
 ## Similarity analysis 

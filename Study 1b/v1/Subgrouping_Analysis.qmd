@@ -368,7 +368,7 @@ summary(emtrends(similaritymod, pairwise ~ targetpair, var = 'Deviant_threshold'
 
 #Run the ISM using Julia
 library(JuliaCall)
-julia_setup(JULIA_HOME = "/Applications/Julia-1.8.app/Contents/Resources/julia/bin/")
+julia_setup(JULIA_HOME = '/Users/JEM/.juliaup/bin')
 julia_source(file_name = '../clustering/InfiniteSimilarityModel.jl')
 
 runISM = function(X){
