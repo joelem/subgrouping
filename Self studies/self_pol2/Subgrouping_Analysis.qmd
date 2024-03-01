@@ -244,11 +244,18 @@ similarity = data %>%
            str_remove('[ M]') %>% 
            str_remove('[F]') %>% 
            str_remove('[1-4]')) %>% 
-  mutate(targetpair = case_when(devpair == 'participant,majority'| devpair == 'majority,participant' ~ 'PM',
-                                devpair == 'participant,deviant'| devpair == 'deviant,participant' ~ 'PD',
-                                devpair == 'majority,majority' ~ 'MM',
-                                devpair == 'deviant,deviant' ~ 'DD',
-                                devpair == 'deviant,majority' | devpair == 'majority,deviant' ~ 'DM')) 
+  #We are simplifying the pairs as match (DD, MM, PM) vs mismatch (DM, PD)
+  mutate(targetpair = case_when(devpair == 'participant,majority'| devpair == 'majority,participant' ~ 'Match',
+                                devpair == 'participant,deviant'| devpair == 'deviant,participant' ~ 'Mismatch',
+                                devpair == 'majority,majority' ~ 'Match',
+                                devpair == 'deviant,deviant' ~ 'Match',
+                                devpair == 'deviant,majority' | devpair == 'majority,deviant' ~ 'Mismatch')) 
+  #use the following targetpair definitions instead if want the analysis that more comprehensively accounts for the experimental design
+  # mutate(targetpair = case_when(devpair == 'participant,majority'| devpair == 'majority,participant' ~ 'PM',
+  #                               devpair == 'participant,deviant'| devpair == 'deviant,participant' ~ 'PD',
+  #                               devpair == 'majority,majority' ~ 'MM',
+  #                               devpair == 'deviant,deviant' ~ 'DD',
+  #                               devpair == 'deviant,majority' | devpair == 'majority,deviant' ~ 'DM')) 
 
 similarity_sub = similarity %>% 
   group_by(SubjID, Deviant_threshold, targetpair) %>% 
@@ -289,44 +296,43 @@ similarity_avgs = similarity_sub %>%
 ```{r}
 #| title: Plot x PolParty
 
-# similarity_sub = similarity %>% 
-#   group_by(SubjID, Deviant_threshold, polparty, targetpair) %>% 
-#   summarize(subavg = mean(response))
-# 
-# similarity_avgs = similarity_sub %>% 
-#   group_by(Deviant_threshold, polparty, targetpair) %>% 
-#   summarize(avg = mean(subavg),
-#             n = n(),
-#             ci = qt(0.975,df=n-1)*sd(subavg)/sqrt(n),
-#             l.ci = avg-ci,
-#             h.ci = avg+ci)
-# 
-# (similarity_sub %>% 
-#     ggplot(aes(x = targetpair,
-#                y = subavg))+
-#     geom_violin()+
-#     geom_point(alpha = .2)+
-#     facet_grid(polparty~Deviant_threshold)+
-#     scale_y_continuous(name= 'Average Similarity',
-#                        breaks = seq(0,100,10))+
-#     theme_bw()+
-#     xlab('')+
-#     geom_point(data=similarity_avgs,
-#                aes(y=avg,
-#                    color=targetpair),
-#                size = 3,
-#                position = position_nudge(x=.25))+
-#     geom_errorbar(data=similarity_avgs,
-#                   aes(y=avg,
-#                       ymax=h.ci,
-#                       ymin=l.ci,
-#                       color=targetpair),
-#                   width=.2,
-#                   position = position_nudge(x=.25))+
-#   guides(fill = 'none', color='none')) %>% 
-#   ggplotly()
+similarity_sub = similarity %>%
+  group_by(SubjID, Deviant_threshold, polparty, targetpair) %>%
+  summarize(subavg = mean(response))
 
-print('holding off')
+similarity_avgs = similarity_sub %>%
+  group_by(Deviant_threshold, polparty, targetpair) %>%
+  summarize(avg = mean(subavg),
+            n = n(),
+            ci = qt(0.975,df=n-1)*sd(subavg)/sqrt(n),
+            l.ci = avg-ci,
+            h.ci = avg+ci)
+
+(similarity_sub %>%
+    ggplot(aes(x = targetpair,
+               y = subavg))+
+    geom_violin()+
+    geom_point(alpha = .2)+
+    facet_grid(polparty~Deviant_threshold)+
+    scale_y_continuous(name= 'Average Similarity',
+                       breaks = seq(0,100,10))+
+    theme_bw()+
+    xlab('')+
+    geom_point(data=similarity_avgs,
+               aes(y=avg,
+                   color=targetpair),
+               size = 3,
+               position = position_nudge(x=.25))+
+    geom_errorbar(data=similarity_avgs,
+                  aes(y=avg,
+                      ymax=h.ci,
+                      ymin=l.ci,
+                      color=targetpair),
+                  width=.2,
+                  position = position_nudge(x=.25))+
+  guides(fill = 'none', color='none')) %>%
+  ggplotly()
+
 ```
 
 ### Model {.tabset title="Similarity Analysis"}
@@ -334,23 +340,21 @@ print('holding off')
 ```{r}
 #| title: Model
 
-# similaritymod = similarity %>% 
-#   lmer(response ~ targetpair*Deviant_threshold +
-#          (targetpair|SubjID),
-#        REML = F,
-#            control= lmerControl(optimizer="bobyqa",
-#                                 optCtrl=list(maxfun=500000)),
-#        data = .)
-# 
-# anova(similaritymod)
-print('holding off')
+similaritymod = similarity %>%
+  lmer(response ~ targetpair*Deviant_threshold +
+         (targetpair|SubjID),
+       REML = F,
+           control= lmerControl(optimizer="bobyqa",
+                                optCtrl=list(maxfun=500000)),
+       data = .)
+
+anova(similaritymod)
 ```
 
 ```{r}
 #| title: Interxn
 
-# summary(emtrends(similaritymod, pairwise ~ targetpair, var = 'Deviant_threshold', infer= c(T,T)))
-print('holding off')
+summary(emtrends(similaritymod, pairwise ~ targetpair, var = 'Deviant_threshold', infer= c(T,T)))
 ```
 
 ## ISM analysis
@@ -843,9 +847,14 @@ anova(polmod)
 
 # Notes
 
-::: {.card title="Unresolved"}
+::: {.card title="Things to note"}
+For the similarity ratings: 
 
-- Similarity Analysis, how to conduct results given the exp design (majority x participant x deviants)
+- match (DD, MM, PM) vs mismatch (DM, PD), D = deviant, M = majority, P = participant
+
+:::
+
+::: {.card title="Unresolved"}
 
   - Does it make sense to break into deviant/nondeviant learning given design?
 
