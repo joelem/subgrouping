@@ -647,9 +647,19 @@ abovemod = predictions %>%
   filter(Deviant_threshold >= .5) %>%
   lm(confidence ~ Deviant_threshold, data = .)
 
+options(tibble.width = Inf)
 list(`below_.5` = belowmod, `above_.5` = abovemod) %>% 
   map_df(., tidy, conf.int=TRUE, .id = 'model') %>%
-  filter(term !="(Intercept)")
+  filter(term !="(Intercept)") %>% 
+  #add additional model info
+  left_join(list(`below_.5` = belowmod, `above_.5` = abovemod) %>%
+              map_df(., glance, .id = 'model') %>% 
+              select(model,
+                     r.squared,
+                     adj.r.squared,
+                     df,
+                     df.residual,
+                     nobs), by = 'model')
 ```
 
 ```{r}
@@ -727,21 +737,33 @@ belowmod = predictions %>%
   group_by(pred_maj) %>% 
   do(tidy(lm(confidence ~ Deviant_threshold, data = .), conf.int=T)) %>% 
   filter(term !="(Intercept)") %>% 
+  mutate(id = 'below_.5')
+belowmod.extra = predictions %>% 
+  filter(Deviant_threshold <= .5) %>%
+  group_by(pred_maj) %>% 
+  do(glance(lm(confidence ~ Deviant_threshold, data = .), conf.int=T)) %>% 
   mutate(id = 'below_.5') %>% 
-  na.omit()
-  
+  select(pred_maj, id, r.squared, adj.r.squared, df, df.residual, nobs)
+belowmod = left_join(belowmod, belowmod.extra)
 
 abovemod = predictions %>% 
   filter(Deviant_threshold >= .5) %>%
   group_by(pred_maj) %>% 
   do(tidy(lm(confidence ~ Deviant_threshold, data = .), conf.int=T)) %>% 
   filter(term !="(Intercept)")%>% 
+  mutate(id = 'above_.5') 
+abovemod.extra = predictions %>% 
+  filter(Deviant_threshold >= .5) %>%
+  group_by(pred_maj) %>% 
+  do(glance(lm(confidence ~ Deviant_threshold, data = .), conf.int=T)) %>% 
   mutate(id = 'above_.5') %>% 
-  na.omit()
+  select(pred_maj, id, r.squared, adj.r.squared, df, df.residual, nobs)
+abovemod = left_join(abovemod, abovemod.extra)
 
 bind_rows(belowmod, abovemod) %>% 
   arrange(pred_maj, desc(id)) %>% 
-  relocate(pred_maj, id)
+  relocate(pred_maj, id) %>% 
+  na.omit()
 ```
 
 ```{r}
@@ -810,19 +832,32 @@ belowmod = predictions %>%
   do(tidy(lm(confidence ~ Deviant_threshold, data = .), conf.int=T)) %>% 
   filter(term !="(Intercept)") %>% 
   mutate(id = 'below_.5')
+belowmod.extra = predictions %>% 
+  filter(Deviant_threshold <= .5) %>%
+  group_by(pns_med) %>% 
+  do(glance(lm(confidence ~ Deviant_threshold, data = .), conf.int=T)) %>% 
+  mutate(id = 'below_.5') %>% 
+  select(pns_med, id, r.squared, adj.r.squared, df, df.residual, nobs)
+belowmod = left_join(belowmod, belowmod.extra)
   
-
 abovemod = predictions %>% 
   filter(Deviant_threshold >= .5) %>%
   group_by(pns_med) %>% 
   do(tidy(lm(confidence ~ Deviant_threshold, data = .), conf.int=T)) %>% 
   filter(term !="(Intercept)")%>% 
+  mutate(id = 'above_.5')
+abovemod.extra = predictions %>% 
+  filter(Deviant_threshold >= .5) %>%
+  group_by(pns_med) %>% 
+  do(glance(lm(confidence ~ Deviant_threshold, data = .), conf.int=T)) %>% 
   mutate(id = 'above_.5') %>% 
-  na.omit()
+  select(pns_med, id, r.squared, adj.r.squared, df, df.residual, nobs)
+abovemod = left_join(abovemod, abovemod.extra)
 
 bind_rows(belowmod, abovemod) %>% 
   arrange(pns_med, desc(id)) %>% 
-  relocate(pns_med, id)
+  relocate(pns_med, id) %>% 
+  na.omit()
 ```
 
 ```{r}

@@ -607,9 +607,19 @@ abovemod = predictions %>%
   filter(Deviant_threshold >= .5) %>%
   lm(confidence ~ Deviant_threshold, data = .)
 
+options(tibble.width = Inf)
 list(`below_.5` = belowmod, `above_.5` = abovemod) %>% 
   map_df(., tidy, conf.int=TRUE, .id = 'model') %>%
-  filter(term !="(Intercept)")
+  filter(term !="(Intercept)") %>% 
+  #add additional model info
+  left_join(list(`below_.5` = belowmod, `above_.5` = abovemod) %>%
+              map_df(., glance, .id = 'model') %>% 
+              select(model,
+                     r.squared,
+                     adj.r.squared,
+                     df,
+                     df.residual,
+                     nobs), by = 'model')
 ```
 
 ```{r}
