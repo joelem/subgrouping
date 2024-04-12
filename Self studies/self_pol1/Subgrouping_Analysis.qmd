@@ -174,17 +174,21 @@ learningavgs = learningtask %>%
                   ymax = h.ci,
                   ymin = l.ci),
               alpha = .2) +
-  geom_point() +
+  geom_point(size = .8) +
   geom_line() +
   theme_bw() +
   xlab('Round') +
   ylab("Accuracy")+
   facet_grid(.~ Deviant_threshold) +
+  scale_x_discrete(breaks = seq(0, max(learningavgs$opinion_round)),
+                     labels = seq(0, max(learningavgs$opinion_round)) + 1) +
   scale_y_continuous(labels = seq(0,100,10),
                      breaks = seq(0,100,10),
                      limits = c(0,101)) +
   scale_color_discrete(name = 'Deviation')) %>% 
   ggplotly()
+
+ggsave('figs/exp3-learning.eps', device = cairo_ps, height = 2.5, width = 5)
 ```
 
 ### Model {.tabset title="Learning Analysis"}
@@ -267,18 +271,22 @@ similarity_avgs = similarity_sub %>%
 (similarity_sub %>% 
     ggplot(aes(x = targetpair,
                y = subavg))+
-    geom_violin()+
-    geom_point(alpha = .2)+
+    geom_violin(draw_quantiles = c(0.25, .5, 0.75),
+              linetype = "dashed",
+              color = 'darkblue') +
+    geom_violin(fill="transparent") +
+    geom_point(alpha = .2,
+               size = .7)+
     facet_grid(.~Deviant_threshold)+
     scale_y_continuous(name= 'Average Similarity',
                        breaks = seq(0,100,10))+
     theme_bw()+
-    xlab('')+
+    xlab('Pair Type')+
     geom_point(data=similarity_avgs,
                aes(y=avg,
                    color=targetpair),
-               size = 3,
-               position = position_nudge(x=.25))+
+               position = position_nudge(x=.25),
+               shape = 5)+
     geom_errorbar(data=similarity_avgs,
                   aes(y=avg,
                       ymax=h.ci,
@@ -288,6 +296,8 @@ similarity_avgs = similarity_sub %>%
                   position = position_nudge(x=.25))+
   guides(fill = 'none', color='none')) %>% 
   ggplotly()
+
+ggsave('figs/exp3-similarity.eps', device = cairo_ps, height = 2.5, width = 4.5)
 ```
 
 ```{r}
@@ -490,24 +500,30 @@ kplot = subs %>%
 ggplot(aes(x = as.factor(Deviant_threshold),
            y = k,
            group = Deviant_threshold))+ 
-  geom_violin(draw_quantiles = c(0.25, 0.75),
-              linetype = "dashed") +
-  geom_violin(fill="transparent",
-              draw_quantiles = 0.5) +
-  geom_point(alpha = .2)+
+  geom_violin(draw_quantiles = c(0.25, .5, 0.75),
+              linetype = "dashed",
+              color = 'darkblue') +
+  geom_violin(fill="transparent") +
+  geom_point(alpha = .2,
+             size = .7)+
   theme_bw()+
   scale_y_continuous(name = 'k (number of clusters)')+
   geom_point(data=kplot,
              aes(y = avg),
-             color = 'red')+
+             color = 'darkblue',
+             position = position_nudge(-.4),
+             shape = 5)+
   geom_errorbar(data=kplot,
                 aes(y = avg,
                     ymax = hi.ci,
                     ymin = low.ci),
-                color = 'red',
-                width = .2)+
+                color = 'darkblue',
+                width = .2,
+                position = position_nudge(-.4))+
   scale_x_discrete(name = 'Deviance')) %>% 
   ggplotly()
+
+ggsave('figs/exp3-kcluster.eps', device = cairo_ps, height = 2.5, width = 2.5)
 ```
 
 ### Model {.tabset title="ISM Analysis"}
@@ -567,18 +583,24 @@ predictions_avg = predictions %>%
     ggplot(aes(x = as.factor(Deviant_threshold),
                y = confidence,
                group = Deviant_threshold))+ 
-    geom_violin()+
-    geom_point(alpha = .2)+
+    geom_violin(draw_quantiles = c(0.25, .5, 0.75),
+              linetype = "dashed",
+              color = 'darkblue') +
+    geom_violin(fill="transparent") +
+    geom_point(alpha = .2,
+             size = .7)+
     geom_point(data = predictions_avg,
                aes(y = m.conf),
-               color = 'red',
-               size = 2)+
+               color = 'darkblue',
+               position = position_nudge(-.15),
+               shape = 5)+
     geom_errorbar(data = predictions_avg,
                   aes(y = m.conf,
                       ymax=h.ci,
                       ymin=l.ci),
-                  color = 'red',
-                  width = .1)+
+                  color = 'darkblue',
+                  width = .2,
+                  position = position_nudge(-.15))+
     theme_bw()+
     scale_y_continuous(labels = seq(0,100,10),
                        breaks = seq(0,100,10),
@@ -588,6 +610,8 @@ predictions_avg = predictions %>%
                        breaks = seq(0,1,.25),
                        name = 'Deviance')) %>% 
   ggplotly()
+
+ggsave('figs/exp3-confidence.eps', device = cairo_ps, height = 2.5, width = 2.5)
 ```
 
 ### Model {.tabset title="Prediction Analysis"}
@@ -660,18 +684,24 @@ predictions_par_avg = predictions %>%
     ggplot(aes(x = as.factor(Deviant_threshold),
                y = confidence,
                group = Deviant_threshold))+ 
-    geom_violin()+
+    geom_violin(draw_quantiles = c(0.25, .5, 0.75),
+              linetype = "dashed",
+              color = 'darkblue') +
+    geom_violin(fill="transparent") +
+    geom_point(alpha = .2,
+             size = .7)+
     geom_point(data = predictions_par_avg,
                aes(y = m.conf),
-               color = 'red',
-               size = 2)+
+               color = 'darkblue',
+               position = position_nudge(-.15),
+               shape = 5)+
     geom_errorbar(data = predictions_par_avg,
                   aes(y = m.conf,
                       ymax=h.ci,
                       ymin=l.ci),
-                  color = 'red',
-                  width = .1)+
-    geom_point(alpha = .2)+
+                  color = 'darkblue',
+                  width = .2,
+                  position = position_nudge(-.15))+
     theme_bw()+
     xlab('Deviance')+
     ylab("Confidence")+
@@ -753,18 +783,24 @@ stimid_avg = stimid %>%
     ggplot(aes(x = as.factor(Deviant_threshold),
                y = groupid,
                group = Deviant_threshold))+ 
-    geom_violin()+
+    geom_violin(draw_quantiles = c(0.25, .5, 0.75),
+              linetype = "dashed",
+              color = 'darkblue') +
+    geom_violin(fill="transparent") +
+    geom_point(alpha = .2,
+             size = .7)+
     geom_point(data = stimid_avg,
                aes(y = m.conf),
-               color = 'red',
-               size = 2)+
+               color = 'darkblue',
+               position = position_nudge(-.15),
+               shape = 5)+
     geom_errorbar(data = stimid_avg,
                   aes(y = m.conf,
                       ymax=h.ci,
                       ymin=l.ci),
-                  color = 'red',
-                  width = .1)+
-    geom_point(alpha = .2)+
+                  color = 'darkblue',
+                  width = .2,
+                  position = position_nudge(-.15))+
     theme_bw()+
     xlab('Deviance')+
     ylab("Identification")+
@@ -861,6 +897,12 @@ polmod = polid %>%
        data = .)
 
 anova(polmod)
+```
+
+```{r}
+#| title: Time
+
+summary(emmeans(polmod, pairwise ~ time, infer= c(T,T)))
 ```
 
 
