@@ -34,7 +34,8 @@ pacman::p_load(tidyverse,
                lme4,
                emmeans,
                lmerTest,
-               jsonlite)
+               jsonlite,
+               tidyjson)
 emm_options(lmer.df = 'satterthwaite')
 emm_options(lmerTest.limit = 20000)
 #to run the dashboard, need to install development version of Quarto:
@@ -62,6 +63,11 @@ data = data %>%
          race = pick(everything()) %>% 
            filter(part_of_expt == 'demographics') %>% 
            pull(`demo_0--response`),
+         polparty = pick(everything()) %>% 
+           filter(part_of_expt == 'party_choice') %>% 
+           pull(responses) %>% 
+           spread_all %>% 
+           pull(Q0),
          #did they pass ALL attention checks
          passedattn = all(
            #heart attack attention check
@@ -86,7 +92,13 @@ data = data %>%
   #correct for programming error (only use for V3/4/5/6)
   #mutate(prediction = ifelse(prediction == 'agree',  'disagree', 'agree')) %>% 
   #Did new agent prediction match majority opinion on last round?
-  mutate(pred_maj = majority_lastopinion == prediction)
+  mutate(pred_maj = majority_lastopinion == prediction) %>% 
+  #does self-polparty match the agents' polparty?
+  mutate(same_party = case_when(polparty == 'Democratic' &
+                                  Condition == 'Democrat' ~ "Ingroup",
+                                polparty == 'Republican' &
+                                  Condition == 'Republican' ~ "Ingroup",
+                                .default = 'Outgroup'))
 
 #calculate the PNS score (only for V3/V4/V5/V6/V7)
 data = data %>% 
@@ -708,6 +720,107 @@ summary(emmeans(predictionmod, pairwise ~ deviance), infer=c(T,T))
 ```
 
 ## Moderator Analysis 
+
+### Moderator Last Opinion {.tabset title="Moderator: Ingroup"}
+
+```{r}
+#| title: Table
+
+table1(~ as.factor(Deviant_threshold)| polparty+same_party , predictions)
+```
+
+```{r}
+#| title: Plot
+
+predictions_ig_avg = predictions %>%
+  group_by(Deviant_threshold, same_party) %>%
+  summarize(n = n(),
+            m.conf = mean(confidence),
+            ci = qt(0.975,df=n-1)*sd(confidence)/sqrt(n),
+            l.ci= m.conf-ci,
+            h.ci = m.conf+ci)
+
+(predictions %>%
+    ggplot(aes(x = as.factor(Deviant_threshold),
+               y = confidence,
+               group = Deviant_threshold))+
+    geom_violin(draw_quantiles = c(0.25, .5, 0.75),
+              linetype = "dashed",
+              color = 'darkblue') +
+    geom_violin(fill="transparent") +
+    geom_point(alpha = .2,
+             size = .7)+
+    geom_point(data = predictions_ig_avg,
+               aes(y = m.conf),
+               color = 'darkblue',
+               position = position_nudge(-.15),
+               shape = 5)+
+    geom_errorbar(data = predictions_ig_avg,
+                  aes(y = m.conf,
+                      ymax=h.ci,
+                      ymin=l.ci),
+                  color = 'darkblue',
+                  width = .2,
+                  position = position_nudge(-.15))+
+    theme_bw()+
+    xlab('Deviance')+
+    ylab("Confidence")+
+  scale_y_continuous(labels = seq(0,100,10),
+                     breaks = seq(0,100,10),
+                     limits = c(0,100))+
+    scale_x_discrete(labels = seq(0,1,.25),
+                     breaks = seq(0,1,.25))+
+    facet_grid(~same_party)+
+    ggtitle("Chose majority opinion?")) %>%
+  ggplotly()
+```
+
+```{r}
+#| title: '2LineTest'
+
+belowmod = predictions %>%
+  filter(Deviant_threshold <= .5) %>%
+  group_by(same_party) %>%
+  do(tidy(lm(confidence ~ Deviant_threshold, data = .), conf.int=T)) %>%
+  filter(term !="(Intercept)") %>%
+  mutate(id = 'below_.5')
+belowmod.extra = predictions %>%
+  filter(Deviant_threshold <= .5) %>%
+  group_by(same_party) %>%
+  do(glance(lm(confidence ~ Deviant_threshold, data = .), conf.int=T)) %>%
+  mutate(id = 'below_.5') %>%
+  select(same_party, id, r.squared, adj.r.squared, df, df.residual, nobs)
+belowmod = left_join(belowmod, belowmod.extra)
+
+abovemod = predictions %>%
+  filter(Deviant_threshold >= .5) %>%
+  group_by(same_party) %>%
+  do(tidy(lm(confidence ~ Deviant_threshold, data = .), conf.int=T)) %>%
+  filter(term !="(Intercept)")%>%
+  mutate(id = 'above_.5')
+abovemod.extra = predictions %>%
+  filter(Deviant_threshold >= .5) %>%
+  group_by(same_party) %>%
+  do(glance(lm(confidence ~ Deviant_threshold, data = .), conf.int=T)) %>%
+  mutate(id = 'above_.5') %>%
+  select(same_party, id, r.squared, adj.r.squared, df, df.residual, nobs)
+abovemod = left_join(abovemod, abovemod.extra)
+
+bind_rows(belowmod, abovemod) %>%
+  arrange(same_party, desc(id)) %>%
+  relocate(same_party, id) %>%
+  na.omit()
+```
+
+```{r}
+#| title: Model
+
+predictions %>%
+  mutate(deviance = as.factor(Deviant_threshold)) %>%
+  lm(confidence ~ deviance*same_party, .) %>%
+  anova()
+```
+
 
 ### Moderator Last Opinion {.tabset title="Moderator: Last Opinion"}
 
