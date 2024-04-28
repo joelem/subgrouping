@@ -254,9 +254,13 @@ similarity = data %>%
            str_remove('[ M]') %>% 
            str_remove('[F]') %>% 
            str_remove('[1-4]')) %>% 
+<<<<<<< HEAD
   mutate(targetpair = ifelse(devpair == 'participant,maj_deviant' | devpair == 'maj_deviant,participant', 'PA', 'AA')) %>% 
   mutate(targetpair = factor(targetpair,
                                levels = c('PA', 'AA')))
+=======
+  mutate(targetpair = ifelse(devpair == 'participant,maj_deviant' | devpair == 'maj_deviant,participant', 'PA', 'AA')) 
+>>>>>>> 023174959a2ac61cf09eb47f8ed54c9af00826a4
 
 similarity_sub = similarity %>% 
   group_by(SubjID, Deviant_threshold, targetpair) %>% 
