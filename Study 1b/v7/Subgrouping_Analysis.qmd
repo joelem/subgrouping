@@ -771,7 +771,7 @@ predictions_ig_avg = predictions %>%
     scale_x_discrete(labels = seq(0,1,.25),
                      breaks = seq(0,1,.25))+
     facet_grid(~same_party)+
-    ggtitle("Chose majority opinion?")) %>%
+    ggtitle("Ingroup vs Outgroup")) %>%
   ggplotly()
 ```
 
