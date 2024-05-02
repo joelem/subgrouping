@@ -414,6 +414,33 @@ anova(similaritymod)
 summary(emtrends(similaritymod, pairwise ~ targetpair, var = 'Deviant_threshold', infer= c(T,T)))
 ```
 
+```{r}
+#| title: "2LineTest"
+
+belowmod = similarity_sub %>% 
+  filter(Deviant_threshold <= .5 & targetpair == 'NN') %>%
+  lm(subavg ~ Deviant_threshold, data = .)
+
+abovemod = similarity_sub %>% 
+  filter(Deviant_threshold >= .5 & targetpair == 'NN') %>%
+  lm(subavg ~ Deviant_threshold, data = .)
+
+options(tibble.width = Inf)
+list(`below_.5` = belowmod, `above_.5` = abovemod) %>% 
+  map_df(., tidy, conf.int=TRUE, .id = 'model') %>%
+  filter(term !="(Intercept)") %>% 
+  #add additional model info
+  left_join(list(`below_.5` = belowmod, `above_.5` = abovemod) %>%
+              map_df(., glance, .id = 'model') %>% 
+              select(model,
+                     r.squared,
+                     adj.r.squared,
+                     df,
+                     df.residual,
+                     nobs), by = 'model')
+
+```
+
 ## ISM analysis
 
 ### Plot
