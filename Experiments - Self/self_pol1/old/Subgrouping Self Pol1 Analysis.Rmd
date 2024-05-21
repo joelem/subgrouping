@@ -1,0 +1,642 @@
+---
+title: "Subgrouping Analysis Self Pol1 Analysis"
+author: "Laura Rosero - joel Edit - Rachel edit"
+date: '2022-07-12'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = F, warning = F, message = F)
+library(gtools)
+library(stringi)
+library(stringr)
+library(plyr)
+library(ggplot2)
+library(table1)
+library(tidyverse)
+library(rstatix)
+library(writexl)
+library(ggsignif)
+library(lmerTest)
+library(emmeans)
+library(naniar)
+library(ggpubr)
+```
+
+
+
+```{r, echo=FALSE}
+files = Sys.glob('data/sg_self1_responses/*.csv')
+
+data = do.call(smartbind, lapply(files, function(x){
+   d = read.csv(x, header = T)
+   attncheck1 = ifelse(d$attention_check_fatal_correctness[d$part_of_expt == 'attentioncheck_heart'] == 'correct', T, F)
+  attncheck2 = ifelse(d$attention_check_sort_correctness[d$part_of_expt == 'attentioncheck_sort'] == 'correct', T, F)
+  d$passedattn = all(attncheck1, attncheck2)
+  lastopinion = names(sort(table(d$stim_opinion[d$opinion_round == 7]), decreasing = T))[1]
+  d$predcorrect = lastopinion == d$agreement_prediction[d$part_of_expt == 'prediction']
+  
+  #Set up demographics here as it makes it easier later to calculate by them
+  d$age = d$demo_2..response[d$part_of_expt == 'demographics']
+  d$gender = d$demo_1..response[d$part_of_expt == 'demographics']
+  d$race = d$demo_0..response[d$part_of_expt == 'demographics']
+  d$party = jsonlite::parse_json(d$responses[d$part_of_expt == 'party_choice'])[[1]][1]
+  
+  #fix type issues
+  d$Deviant_threshold = factor(d$Deviant_threshold, levels = c(0, .25, .5, .75, 1))
+  
+  d
+
+}))
+
+failed = data[data$passedattn == F,]
+data = data[data$passedattn == T,]
+#reversing agreement_prediction column to correct for programming error (only use for V3/4/5/6)
+data$agreement_prediction = ifelse(data$agreement_prediction == "disagree", "agree", "disagree")
+#reversing predcorrect column to correct for programming error (only use for V3/4/5/6)
+data$predcorrect = ifelse(data$predcorrect == TRUE, FALSE, TRUE)
+# remove outlier in 100% condition, SubjID 90513253 
+#data = subset(data, SubjID!=90513253) 
+```
+
+# Demographics
+
+```{r, echo = F}
+#failed
+failed.dems = unique(failed[, c('SubjID', 'age', 'race', 'gender', 'party', 'Deviant_threshold'),])
+table1(~age+ race+ gender + party | Deviant_threshold, failed.dems)
+
+#good data
+dems = unique(data[, c('SubjID', 'age', 'race', 'gender', 'party', 'Deviant_threshold'),])
+table1(~ age+ race+ gender + party | Deviant_threshold, dems)
+```
+
+# Opinion Learning
+
+```{r, echo = F}
+learning_task = data%>%filter(part_of_expt == 'learning_task'
+                              & opinion_round != 'participant 0'
+                              & opinion_round != 'participant 1'
+                              & opinion_round != 'participant 2'
+                              & opinion_round != 'participant 3'
+                              & opinion_round != 'participant 4'
+                              & opinion_round != 'participant 5'
+                              & opinion_round != 'participant 6'
+                              & opinion_round != 'participant 7')
+learning_task$response_correctness <- ifelse(learning_task$response_correctness 
+                                             == 'correct', 1, 0)
+learning_performance = ddply(learning_task, 
+                             c('SubjID','Deviant_threshold','opinion_round'), 
+                             summarise, Mean = mean(response_correctness)*100)
+learning_avg = ddply(learning_performance, 
+                     c('Deviant_threshold','opinion_round'), summarise, 
+                     Accuracy = mean(Mean), n = length(Mean), 
+                     CI = qt(0.975,df=n-1)*sd(Mean)/sqrt(n), 
+                     L.CI = Accuracy-CI, H.CI = Accuracy+CI)
+
+Learning_Stats_V1<-data.frame(Threshold = character(),
+                           Group_A = character(),
+                           Group_B = character(),
+                           p.value = integer(),
+                           Symbol = character())
+
+ggplot(learning_avg, aes(x = opinion_round, y = Accuracy, color = as.factor(Deviant_threshold), 
+       group = as.factor(Deviant_threshold)))+ 
+  geom_ribbon(aes(y = Accuracy, ymax = H.CI, ymin = L.CI), alpha = .2)+
+  geom_point()+
+  geom_line()+
+  theme_bw()+
+  theme(plot.title = element_text(size = 14, face = 'bold'), axis.title = element_text(size = 13, face = 'bold'))+
+  labs(x = 'Round', title = 'Accuracy per Round (Learning)')+
+  facet_grid(~Deviant_threshold)+
+  scale_y_continuous(labels = seq(0,100,10), breaks = seq(0,100,10), limits = c(0,100))+
+  scale_color_discrete(name = 'Deviation')
+
+#ggsave("opinionlearning.png", width = 6.5, height = 5, dpi = 500)
+```
+
+# Learning task by party 
+
+```{r, echo = F}
+learning_task1 = data%>%filter(part_of_expt == 'learning_task'
+                              & opinion_round != 'participant 0'
+                              & opinion_round != 'participant 1'
+                              & opinion_round != 'participant 2'
+                              & opinion_round != 'participant 3'
+                              & opinion_round != 'participant 4'
+                              & opinion_round != 'participant 5'
+                              & opinion_round != 'participant 6'
+                              & opinion_round != 'participant 7'
+                              | part_of_expt == 'party_choice')
+learning_task1$response_correctness <- ifelse(learning_task1$response_correctness 
+                                             == 'correct', 1, 0)
+learning_task1 = learning_task1 %>% group_by(SubjID) %>% 
+  mutate(party = responses[part_of_expt == 'party_choice'])
+learning_performance1 = ddply(learning_task1, 
+                             c('SubjID','Deviant_threshold','opinion_round', 'party'), 
+                             summarise, Mean = mean(response_correctness)*100)
+learning_performance1 = subset(learning_performance1, Mean != 0)
+learning_avg1 = ddply(learning_performance1, 
+                     c('Deviant_threshold', 'party','opinion_round'), summarise, 
+                     Accuracy = mean(Mean), n = length(Mean), 
+                     CI = qt(0.975,df=n-1)*sd(Mean)/sqrt(n), 
+                     L.CI = Accuracy-CI, H.CI = Accuracy+CI)
+
+ggplot(learning_avg1, aes(x = opinion_round, y = Accuracy, color = as.factor(Deviant_threshold), 
+       group = as.factor(Deviant_threshold)))+ 
+  geom_ribbon(aes(y = Accuracy, ymax = H.CI, ymin = L.CI, fill = as.factor(Deviant_threshold)), alpha = .2)+
+  geom_point()+
+  geom_line()+
+  theme_bw()+
+  theme(plot.title = element_text(size = 14, face = 'bold'), axis.title = element_text(size = 13, face = 'bold'))+
+  labs(x = 'Round', title = 'Accuracy per Round (Learning)')+
+  facet_grid(~Deviant_threshold)+
+  scale_y_continuous(labels = seq(0,100,10), breaks = seq(0,100,10), limits = c(0,100))+
+  scale_color_discrete(name = 'Deviation')+
+  scale_fill_discrete(name = 'Deviation')+
+  facet_grid(.~party)
+#ggsave("opinionlearningparty.png", width = 6.5, height = 5, dpi = 500)
+
+```
+
+# Stimuli similarity 
+
+```{r, echo = F}
+#Set up similarity_data here and simply use it for the party analysis too
+similarity_data = data[data$part_of_expt == 'similarity_rating',]
+similarity_data$pairings = ifelse(str_detect(similarity_data$stim_names, 'You'), 'par,stim', 'stim,stim')
+similarity_data$pairings = as.factor(similarity_data$pairings)
+
+sim_sum = ddply(similarity_data, 
+                c('SubjID','Deviant_threshold', 'pairings'), summarize, 
+                n = length(pairings), avg = mean(response))
+similarity_summary = ddply(sim_sum, 
+                           c('Deviant_threshold', 'pairings'), summarize, 
+                           n = length(pairings), Mean = mean(avg), 
+                           CI = qt(0.975,df=n-1)*sd(avg)/sqrt(n), L.CI = Mean-CI, 
+                           H.CI = Mean+CI)
+
+
+
+ggplot(sim_sum, aes(x = pairings, y = avg))+
+  facet_grid(.~pairings)+
+  geom_violin()+
+  geom_point(alpha = .2)+
+  facet_grid(.~Deviant_threshold)+
+  scale_y_continuous(name= 'Average Similarity', breaks = seq(0,100,10), limits = c(0,100))+
+  theme_bw()+
+  xlab('')+
+  theme(plot.title = element_text(size = 14.5, face = 'bold'), 
+        axis.title = element_text(size = 12.5, face = 'bold'), 
+        axis.text.x = element_text(size = 8), 
+        legend.text=element_text(size=11.5))+
+  labs(title = 'Similarity Ratings')+
+  scale_color_discrete(name = 'Pairings')+
+  geom_point(data=similarity_summary, aes(y=Mean, color=pairings), size = 3, position = position_nudge(x=.25))+
+  geom_errorbar(data=similarity_summary, aes(y=Mean, ymax=H.CI, ymin=L.CI, color=pairings), width=.2, position = position_nudge(x=.25))
+#ggsave("similarity.png", width = 7.5, height = 6, dpi = 500)
+
+#part - stim only
+emm_options(lmerTest.limit = 10332)
+emm_options(lmer.df = "satterthwaite")
+mod = lmer(response~Deviant_threshold*pairings + (1|SubjID) + (1|stim_names),
+           data = similarity_data, control = lmerControl(optimizer = 'bobyqa'))
+anova(mod)
+emmeans::emmeans(mod, pairwise~ Deviant_threshold | pairings)
+``` 
+
+# Stimuli similarity by party
+
+```{r}
+sim_sum1 = ddply(similarity_data, 
+                c('SubjID','Deviant_threshold', 'pairings', 'party'), summarize, 
+                n = length(pairings), avg = mean(response))
+similarity_summary1 = ddply(sim_sum1, 
+                           c('Deviant_threshold', 'party', 'pairings'), summarize, 
+                           n = length(pairings), Mean = mean(avg), 
+                           CI = qt(0.975,df=n-1)*sd(avg)/sqrt(n), L.CI = Mean-CI, 
+                           H.CI = Mean+CI)
+
+
+
+ggplot(sim_sum1, aes(x = pairings, y = avg))+
+  geom_violin()+
+  geom_point(alpha = .2)+
+  facet_grid(party~Deviant_threshold)+
+  scale_y_continuous(name= 'Average Similarity', breaks = seq(0,100,10))+
+  theme_bw()+
+  xlab('')+
+  theme(plot.title = element_text(size = 14.5, face = 'bold'), 
+        axis.title = element_text(size = 12.5, face = 'bold'), 
+        axis.text.x = element_text(size = 8), 
+        legend.text=element_text(size=11.5))+
+  labs(title = 'Similarity Ratings')+
+  scale_color_discrete(name = 'Pairings')+
+  geom_point(data=similarity_summary, aes(y=Mean, color=pairings), size = 3, position = position_nudge(x=.25))+
+  geom_errorbar(data=similarity_summary, aes(y=Mean, ymax=H.CI, ymin=L.CI, color=pairings), width=.2, position = position_nudge(x=.25))
+#ggsave("similarityparty.png", width = 7.5, height = 6, dpi = 500)
+```
+
+# Party Idenitification
+
+```{r, echo = F}
+party_data = data%>%filter(part_of_expt == 'party_confidence_before'|part_of_expt == 'party_confidence_after')
+#summary(party_data)
+party_data$time = factor(party_data$part_of_expt, levels = c('party_confidence_before', 'party_confidence_after'), labels = c('before', 'after'))
+
+
+#analysis
+partymod = lmer(response ~ Deviant_threshold*time + (1|SubjID), data = party_data)
+anova(partymod)
+
+summary(emmeans(partymod, pairwise ~ time | Deviant_threshold), infer = c(T,T))
+
+#plot
+
+ests = data.frame(summary(emmeans(partymod, ~ time | Deviant_threshold), infer = c(T,T)))
+
+ggplot(party_data, aes(x = time, y = response))+
+  geom_violin(aes(fill = time), draw_quantiles = c(0.25, .5, 0.75), linetype = "dashed") +
+  geom_violin(aes(group = time), fill="transparent",draw_quantiles = 0) +
+  theme_minimal()+
+  theme(plot.title = element_text(size = 14.5, face = 'bold'), 
+        axis.title = element_text(size = 12.5, face = 'bold'), 
+        axis.text.x = element_blank(),
+        axis.ticks = element_blank(),
+        legend.text=element_text(size=11.5),
+        legend.title=element_blank())+
+  scale_fill_manual(values = c("mistyrose1", "pink3"),
+                    labels=c('Pre', 'Post'))+
+  labs(x = 'Deviance', title = 'Pre vs. Post Party Identification')+
+  ylab('Party Identification')+
+  geom_point(data = ests, aes(y = emmean), position = position_dodge2(.9))+
+  geom_errorbar(data=ests, aes(y = emmean, ymax = upper.CL, ymin = lower.CL), position = position_dodge2(.7), width = .2)+
+  facet_grid(. ~ Deviant_threshold, switch='x')+
+  geom_line(aes(group = SubjID), alpha = .2)
+
+
+# party_data_summary = ddply(party_data, c('Deviant_threshold', 'time'),
+#                            summarise, 
+#                            Mean = mean(response),
+#                            N = length(response),
+#                            SD = sd(response), 
+#                            SE = sd(response/(sqrt(length(response)))), 
+#                            CI = qnorm(0.975)*(sqrt(length(response))), 
+#                            L.CI = Mean-CI, H.CI = Mean+CI)
+# ggplot(data = party_data_summary, aes(x = factor(Deviant_threshold), y = Mean, fill = time))+
+#   geom_col(position = position_dodge(width = 0.7), width = 0.7, 
+#            colour = 'black', size = 0.1)+
+#   scale_y_continuous(expand=c(0,0), limits = c(0, 80))+
+#   geom_errorbar(position = position_dodge(0.7), 
+#                 aes(ymin = Mean-SE, ymax = Mean + SE), width = 0.1)+
+#   theme_minimal()+
+#   theme(plot.title = element_text(size = 14.5, face = 'bold'), 
+#         axis.title = element_text(size = 12.5, face = 'bold'), 
+#         axis.text.x = element_text(size = 8), 
+#         legend.text=element_text(size=11.5),
+#         legend.title=element_blank())+
+#   scale_fill_manual(values = c("mistyrose1", "pink3"),
+#                     labels=c('Pre Identification', 'Post Identification'))+
+#   labs(x = 'Deviant Threshold', title = 'Pre vs. Post Party Identification')
+  # geom_signif(stat = "identity", inherit.aes = FALSE,
+  #             data = data.frame(x = c(1.8, 2.8, 3.8),
+  #                               xend = c(2.2, 3.2, 4.2),
+  #                               y = c(74, 72, 74),
+  #                               annotation = c("***", "*", "**")),
+  #             aes(x = x, xend = xend, y = y, yend = y, annotation = annotation))
+#ggsave('identification.png', width = 7.5, height = 6)
+```
+
+# Party identification by party
+
+```{r, echo = F}
+partymod2 = lmer(response ~ Deviant_threshold*time*party + (1|SubjID), data = party_data)
+anova(partymod2)
+
+summary(emmeans(partymod2, pairwise ~ time | Deviant_threshold + party), infer = c(T,T))
+
+#plot
+
+ests2 = data.frame(summary(emmeans(partymod2, ~ time | Deviant_threshold + party), infer = c(T,T)))
+
+ggplot(party_data, aes(x = time, y = response))+
+  geom_violin(aes(fill = time), draw_quantiles = c(0.25, .5, 0.75), linetype = "dashed") +
+  geom_violin(aes(group = time), fill="transparent",draw_quantiles = 0) +
+  theme_minimal()+
+  theme(plot.title = element_text(size = 14.5, face = 'bold'), 
+        axis.title = element_text(size = 12.5, face = 'bold'), 
+        axis.text.x = element_blank(),
+        axis.ticks = element_blank(),
+        legend.text=element_text(size=11.5),
+        legend.title=element_blank())+
+  scale_fill_manual(values = c("mistyrose1", "pink3"),
+                    labels=c('Pre', 'Post'))+
+  labs(x = 'Deviance', title = 'Pre vs. Post Party Identification')+
+  ylab('Party Identification')+
+  geom_point(data = ests2, aes(y = emmean), position = position_dodge2(.9))+
+  geom_errorbar(data=ests2, aes(y = emmean, ymax = upper.CL, ymin = lower.CL), position = position_dodge2(.7), width = .2)+
+  facet_grid(party ~ Deviant_threshold, switch='x')+
+  geom_line(aes(group = SubjID), alpha = .2)
+
+# party_data_summary2 = ddply(party_data, c('Deviant_threshold', 'time', 'party'),
+#                            summarise, 
+#                            Mean = mean(response),
+#                            N = length(response),
+#                            SD = sd(response), 
+#                            SE = sd(response/(sqrt(length(response)))), 
+#                            CI = qnorm(0.975)*(sqrt(length(response))), 
+#                            L.CI = Mean-CI, H.CI = Mean+CI)
+# ggplot(data = party_data_summary2, aes(x = factor(Deviant_threshold), y = Mean, fill = time))+
+#   geom_col(position = position_dodge(width = 0.7), width = 0.7, 
+#            colour = 'black', size = 0.1)+
+#   scale_y_continuous(expand=c(0,0), limits = c(0, 100))+
+#   geom_errorbar(position = position_dodge(0.7), 
+#                 aes(ymin = Mean-SE, ymax = Mean + SE), width = 0.1)+
+#   theme_minimal()+
+#   theme(plot.title = element_text(size = 14.5, face = 'bold'), 
+#         axis.title = element_text(size = 12.5, face = 'bold'), 
+#         axis.text.x = element_text(size = 8), 
+#         legend.text=element_text(size=11.5),
+#         legend.title=element_blank())+
+#   scale_fill_manual(values = c("mistyrose1", "pink3"),
+#                     labels=c('Pre Identification', 'Post Identification'))+
+#   labs(x = 'Deviant Threshold', title = 'Pre vs. Post Party Identification')+
+#   facet_grid(party~.)
+
+#ggsave('identificationparty.png', width = 7.5, height = 6)
+```
+
+# Prediction Confidence
+
+```{r, echo = F}
+prediction_data = data%>%filter(part_of_expt == 'prediction_confidence')
+prediction_summary = ddply(prediction_data, 
+                           c('Deviant_threshold'), summarise,
+                           Mean = mean(response), n = length(Deviant_threshold), 
+                           CI = qt(0.975,df=n-1)*sd(response)/sqrt(n), 
+                           L.CI = Mean-CI, H.CI = Mean+CI)
+
+ggplot(prediction_data, aes(x = Deviant_threshold, y = response, group = Deviant_threshold))+ 
+  geom_violin()+
+  geom_point(data = prediction_summary, aes(y = Mean), color = 'red', size = 2)+
+  geom_errorbar(data = prediction_summary, aes(y = Mean, ymax=H.CI, ymin=L.CI), color = 'red', width = .1)+
+  geom_point(alpha = .2)+
+  theme_bw()+
+  theme(plot.title = element_text(size = 14, face = 'bold'), axis.title = element_text(size = 12, face = 'bold'))+
+  labs(y = 'Prediction Confidence', x = 'Deviant Threshold', title = 'Prediction Confidence by Threshold')+
+  scale_y_continuous(labels = seq(0,100,10), breaks = seq(0,100,10), limits = c(0,100))
+#ggsave('confidence.png', width = 6.5, height = 5, dpi = 500)
+```
+
+# Prediction Confidence, by correctness about last opinion
+
+```{r, echo = F}
+data_lastopinion = data %>% filter(opinion_round == 'participant 7' |
+                                     opinion_round == '7'| 
+                                     part_of_expt == 'prediction' | 
+                                     part_of_expt == 'prediction_confidence')
+data_lastopinion = data_lastopinion %>% group_by(SubjID) %>% mutate(partopinion = participant_response[opinion_round == 'participant 7'])
+data_lastopinion$stimopinion = ifelse(data_lastopinion$partopinion == data_lastopinion$stim_opinion, 'agree', 'disagree')
+#data_lastopinion <- data_lastopinion %>% relocate(stimopinion, .before = img_filename)
+#data_lastopinion <- data_lastopinion %>% relocate(partopinion, .before = stim_opinion)
+data_lastopinion$stimopinion = ifelse(data_lastopinion$part_of_expt == 'prediction' 
+                                      | data_lastopinion$part_of_expt == 
+                                        'prediction_confidence' , 
+                                      NA, data_lastopinion$stimopinion)
+data_lastopinion$stimopinion = ifelse(data_lastopinion$stim_person_name == 'participant', 
+                                      data_lastopinion$partopinion,data_lastopinion$stimopinion)
+
+majorityopinion <- data_lastopinion %>% group_by(SubjID) %>% count(stimopinion == 'agree')
+majorityopinion$majopinion = ifelse(majorityopinion$`stimopinion == "agree"` == 'TRUE' & majorityopinion$n>4, 'agree', 'disagree')
+majorityopinion <-subset(majorityopinion, n >'4')
+
+predictions = data%>%filter(part_of_expt == 'prediction_confidence')
+predictions1 = data%>%filter(part_of_expt == 'prediction') 
+majorityopinion <- merge(majorityopinion, predictions[,c('SubjID', 'response', "Deviant_threshold")], by = 'SubjID')
+majorityopinion <- merge(majorityopinion, predictions1[,c('SubjID', 'agreement_prediction')], by = 'SubjID')
+majorityopinion$predcorrect = ifelse(majorityopinion$majopinion == majorityopinion$agreement_prediction, T, F)
+prediction_corr = ddply(majorityopinion, c('Deviant_threshold', 'predcorrect'), summarize, n = length(Deviant_threshold), Mean = mean(response), ci = qt(0.975,df=n-1)*sd(response)/sqrt(n), l.ci= Mean-ci, h.ci = Mean+ci)
+
+table1(~predcorrect, predictions)
+table1(~predcorrect | Deviant_threshold, predictions)
+
+ggplot(prediction_data, aes(x = Deviant_threshold, y = response, group = Deviant_threshold))+ 
+  geom_violin()+
+  geom_point(data = prediction_corr, aes(y = Mean), color = 'red', size = 2)+
+  geom_errorbar(data = prediction_corr, aes(y = Mean, ymax=h.ci, ymin=l.ci), color = 'red', width = .1)+
+  geom_point(alpha = .2)+
+  theme_bw()+
+  theme(plot.title = element_text(size = 14, face = 'bold'), axis.title = element_text(size = 12, face = 'bold'))+
+  labs(y = 'Prediction Confidence', x = 'Deviant Threshold', title = 'Prediction Confidence by Threshold')+
+  scale_y_continuous(labels = seq(0,100,10), breaks = seq(0,100,10), limits = c(0,100))+
+  facet_grid(. ~ predcorrect)
+#ggsave('confidence_lastopinion.png', width = 6.5, height = 5, dpi = 500)
+# test = as.data.frame.matrix(table(data_lastopinion$SubjID, data_lastopinion$stimopinion))
+# test$majority = colnames(test)[max.col(test, ties.method ='first')]
+# test$SubjID = row.names(test)
+# majdata = test[, c('SubjID', 'majority')]
+# newdata = merge(majdata, data_lastopinion)
+# preddata = newdata[newdata$part_of_expt == 'prediction',]
+# preddata$matches = preddata$majority == preddata$agreement_prediction
+# lastdataframe = merge(data_lastopinion, preddata[, c('SubjID', 'majority', 'matches')])
+# 
+# table1(~predcorrect, majorityopinion)
+
+#m1 = ddply(lastdataframe[lastdataframe$part_of_expt=='prediction_confidence',], .(Deviant_threshold, matches), summarize, n = length(Deviant_threshold), Mean = mean(response))
+ 
+
+# table1(~predcorrect, predictions)
+# preds.avg.cor = ddply(predictions, .(Deviant_threshold, predcorrect), summarize, n = length(Deviant_threshold), m.conf = mean(confidence), ci = qt(0.975,df=n-1)*sd(confidence)/sqrt(n), l.ci= m.conf-ci, h.ci = m.conf+ci)
+# ggplot(predictions, aes(x = Deviant_threshold, y = confidence, group = Deviant_threshold))+ 
+#   geom_violin()+
+#   geom_point(data = preds.avg.cor, aes(y = m.conf), color = 'red', size = 2)+
+#   geom_errorbar(data = preds.avg.cor, aes(y = m.conf, ymax=h.ci, ymin=l.ci), color = 'red', width = .1)+
+#   geom_point(alpha = .2)+
+#   theme_bw()+
+#   scale_y_continuous(labels = seq(0,100,10), breaks = seq(0,100,10), limits = c(0,100))+
+#   scale_x_continuous(labels = seq(0,1,.25), breaks = seq(0,1,.25))+
+#   facet_grid(~predcorrect)+
+#   ggtitle("Correct about last opinion?")
+```
+
+# Idenitification to Stimuli  
+
+```{r, echo = F}
+Stimuli_ident_data = data%>%filter(part_of_expt == 'party_group_confidence')
+Stim_ident_summary = ddply(Stimuli_ident_data, 
+                           c('Deviant_threshold', 'part_of_expt'), summarize, 
+                           n = length(response), Mean = mean(response),  
+                           CI = qt(0.975,df=n-1)*sd(response)/sqrt(n), 
+                           L.CI = Mean-CI, H.CI = Mean+CI)
+
+ggplot(Stimuli_ident_data, aes(x = Deviant_threshold, y = response, group = Deviant_threshold))+ 
+  geom_violin()+
+  geom_point(data = Stim_ident_summary, aes(y = Mean), color = 'red', size = 2)+
+  geom_errorbar(data = Stim_ident_summary, aes(y = Mean, ymax=H.CI, ymin=L.CI), color = 'red', width = .1)+
+  geom_point(alpha = .2)+
+  theme_bw()+
+  labs(y = 'Idenitification with Stimuli', x = 'Deviant Threshold', title = 'Stimuli Identification')+
+  scale_y_continuous(labels = seq(0,100,10), breaks = seq(0,100,10), limits = c(0,100))
+
+#ggsave('id_to_stim.png', width = 6.5, height = 5, dpi = 500)
+
+Stimuli_ident_data$Deviant_threshold = factor(Stimuli_ident_data$Deviant_threshold)
+
+```
+
+#Scatter plot by Party Id (Post minus Pre)
+```{r, echo = F}
+party_data_before = data[data$part_of_expt == 'party_confidence_before',c('SubjID', 'Deviant_threshold', 'party', 'response')]
+colnames(party_data_before)[colnames(party_data_before) == 'response'] = 'before'
+party_data_after = data[data$part_of_expt == 'party_confidence_after',c('SubjID', 'Deviant_threshold', 'party', 'response')]
+colnames(party_data_after)[colnames(party_data_after) == 'response'] = 'after'
+party_data = merge(party_data_before, party_data_after)
+
+party_data$diff = party_data$after - party_data$before
+
+#party_data2<-subset(party_data, !(Deviant_threshold == 1 & diff == 59 ))  # outlier in 100% condition, SubjID 90513253
+
+ggplot(party_data, aes(x = before, y = diff))+ 
+  geom_point()+
+  stat_cor(data = party_data, aes(x= before, y = diff), method = "pearson", label.sep='\n')+
+  facet_grid(.~Deviant_threshold)+
+  geom_smooth(method='lm')+
+  ylab('Post - Pre')
+
+#ggsave('change_party_id.png', width = 6.5, height = 5, dpi = 500)
+
+#ggplot(party_data, aes(x = before, y = diff))+ 
+  #geom_point()+
+  #facet_grid(party~Deviant_threshold)+
+  #geom_smooth(method='lm')+
+  #ylab('Post - Pre')
+
+```
+
+
+#Cluster analysis
+```{r, eval = F}
+library(JuliaCall)
+julia_setup(JULIA_HOME = "/Applications/Julia-1.8.app/Contents/Resources/julia/bin/")
+julia_source(file_name = '../clustering/InfiniteSimilarityModel.jl')
+
+runISM = function(X){
+  julia_assign('X', X)
+  julia_assign('chain', julia_eval('sample(ISM(X), SMC(), 5000);'))
+  P = julia_eval('clusterprob(chain)')
+  k = julia_eval('numclusters(chain)')
+  list(P = P, k = k)
+}
+```
+
+```{r, eval =F}
+#test if the function works as intended
+library(Matrix)
+clusterMatrix = function(k, obs){
+  M = matrix(1, nrow = obs, ncol = obs)
+  X = as.matrix(bdiag(rep(list(M), k)))
+  X*.99
+}
+X = clusterMatrix(k=3, obs=8)
+
+results = runISM(X)
+results$P
+mean(results$k)
+```
+
+
+```{r, eval = F}
+#Create containers to record output
+subs = unique(data[,c('SubjID', 'Deviant_threshold')])
+subs$k = NA
+submats = vector('list', length(subs$SubjID))
+subprobmats = vector('list', length(subs$SubjID))
+#make similarity matrix
+for(i in 1:length(subs$SubjID)){
+  subdat = similarity_data[similarity_data$SubjID == subs$SubjID[i],]
+  #need unique names of the stimuli used
+  subdat$stim1 = sapply(subdat$stim_names, function(s) strsplit(s, ',')[[1]][1])
+  subdat$stim2 = sapply(subdat$stim_names, function(s) strsplit(s, ',')[[1]][2])
+  allstim = unique(c(subdat$stim1, subdat$stim2))
+  #use them to create matrix size
+  mat = matrix(nrow = length(allstim), ncol = length(allstim))
+  #name rows and columns by stimuli names so we can fill in
+  colnames(mat) = allstim
+  row.names(mat) = allstim
+  #fill in matrix!
+  for(row in 1:nrow(mat)){
+    for(col in 1:ncol(mat)){
+      if(row == col){ #dont have similarity to self, so give perfect similarity
+        mat[row, col] = 100
+        next
+      }
+      rname = row.names(mat)[row]
+      cname = colnames(mat)[col]
+      #find similarity response for pair
+      mat[row, col] = subdat$response[subdat$stim_names == paste0(rname, ',', cname) | subdat$stim_names == paste0(cname, ',', rname)]
+    }
+  }
+  subdat$dev1 = sapply(subdat$stim_deviance_num_gend, function(s) strsplit(s, ',')[[1]][1])
+  subdat$dev2 = sapply(subdat$stim_deviance_num_gend, function(s) strsplit(s, ',')[[1]][2])
+  devdf = unique(data.frame(stim = c(subdat$stim1, subdat$stim2), dev = c(subdat$dev1, subdat$dev2)))
+  devdf$dev = gsub('maj_deviant ', '', devdf$dev)
+  for(b in 1:nrow(mat)){
+    colnames(mat)[b] = devdf$dev[devdf$stim == colnames(mat)[b]]
+    row.names(mat)[b] = devdf$dev[devdf$stim == row.names(mat)[b]]
+  }
+  #order so deviant always in upper left corner
+  mat = mat[order(colnames(mat), decreasing = F), order(colnames(mat), decreasing = F)]
+  
+  #normalize for Turing function 
+  mat = mat/100
+  
+  #save similarity matrix just in case
+  submats[[i]] = mat
+  
+  #cluster model
+  results = runISM(mat)
+  
+  #Save number of clusters
+  subs$k[i] = mean(results$k)
+  
+  #estimate probability matrix between agents
+  P = results$P
+  colnames(P) = colnames(mat)
+  row.names(P) = row.names(mat)
+  
+  #save probability matrix
+  subprobmats[[i]] = P
+  svMisc::progress(i, length(subs$SubjID))
+  
+  # par(mfrow=c(2,2))
+  # corrplot::corrplot(mat
+  # corrplot::corrplot(P)
+  # corrplot::corrplot(mat, order = 'hclust')
+  # corrplot::corrplot(P, order = 'hclust')
+}
+
+#save the probability matrices & data frame so only have to run once (until something needs changing)
+saveRDS(submats, file = "subsimmats.rds")
+saveRDS(subprobmats, file = "subprobmats.rds")
+saveRDS(subs, file = "subs-kestimates.rds")
+```
+
+
+```{r}
+subprobmats = readRDS('subprobmats.rds')
+subs = readRDS('subs-kestimates.rds')
+
+kplot = ddply(subs, .(Deviant_threshold), summarize, n= length(Deviant_threshold), avg = mean(k), ci = qt(.975, n-1)*sd(k)/sqrt(n), low.ci = avg - ci, hi.ci = avg + ci)
+
+ggplot(subs, aes(x = as.factor(Deviant_threshold), y = k, group = Deviant_threshold))+ 
+  geom_violin(draw_quantiles = c(0.25, 0.75), linetype = "dashed") +
+  geom_violin(fill="transparent",draw_quantiles = 0.5) +
+  geom_point(alpha = .2)+
+  theme_bw()+
+  scale_y_continuous(name = 'k (number of clusters)')+
+  geom_point(data=kplot, aes(y = avg), color = 'red')+
+  geom_errorbar(data=kplot, aes(y = avg, ymax = hi.ci, ymin = low.ci), color = 'red', width = .2)+
+  scale_x_discrete(name = 'Deviance')+
+  ggtitle('Infinite Similarity Model results')
+#ggsave('ism.eps', height = 5, width = 5)
+```
