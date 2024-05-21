@@ -504,9 +504,9 @@ for(i in 1:length(subs$SubjID)){
 }
 
 #save the probability matrices & data frame so only have to run once (until something needs changing)
-saveRDS(submats, file = "subsimmats.rds")
-saveRDS(subprobmats, file = "subprobmats.rds")
-saveRDS(subs, file = "subs-kestimates.rds")
+saveRDS(submats, file = "ISM estimates/subs-simmats.rds")
+saveRDS(subprobmats, file = "ISM estimates/subs-probmats.rds")
+saveRDS(subs, file = "ISM estimates/subs-kestimates.rds")
 ```
 
 
@@ -514,8 +514,8 @@ saveRDS(subs, file = "subs-kestimates.rds")
 #| title: ISM Plot
 
 #Read in data made from above code chunks
-subprobmats = readRDS('subprobmats.rds')
-subs = readRDS('subs-kestimates.rds')
+subprobmats = readRDS('ISM estimates/subs-probmats.rds')
+subs = readRDS('ISM estimates/subs-kestimates.rds')
 
 kplot = subs %>% 
   group_by(Deviant_threshold) %>% 

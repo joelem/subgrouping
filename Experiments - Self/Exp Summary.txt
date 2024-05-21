@@ -1,0 +1,6 @@
+Self_pol1: 8 agents, 8 issues, deviance spread across agents, all depends on participants own pol party and their issue positions
+
+Self_pol2: 8 agents, 8 issues, deviance yolked to specific agents, all depends on participants own pol party and their issue positions
+
+Self_team1: 8 agents, 8 issues, introduce arbitrary groups, XXXX
+

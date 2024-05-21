@@ -1,24 +1,20 @@
 ---
-title: "Subgrouping Self V2"
+title: "Subgrouping V2"
 format: 
   dashboard:
     theme: darkly
 ---
 
-# Design
-
+# Design 
 ::: {.card title="Summary"}
 
-Participant selects political party affiliation which then becomes the political party of the majority group. 
+Testing the effect of deviance on similarity-based structure and certainty.
 
-Majority group opinions deviate away from participant’s choice on 8 issues with possible condition randomly selected (deviation threshold = [0/25/50/75/100%]). 
+Hypothesis: We predict that as a new agent’s deviance from the group stereotype increases there will be a transition from group updating to subgroup formation to subtype formation. This will be reflected in participants’ similarity-rating derived dendrograms.
 
-Method change: deviance is tied to specific agents (e.g. the deviant agents are the same from trial to trial)
-
-8 issues, 8 agents
+Method changes: 6 agents, 12 issues
 
 :::
-
 
 ```{r}
 pacman::p_load(tidyverse,
@@ -30,8 +26,7 @@ pacman::p_load(tidyverse,
                broom.mixed,
                lme4,
                emmeans,
-               lmerTest,
-               tidyjson)
+               lmerTest)
 emm_options(lmer.df = 'satterthwaite')
 emm_options(lmerTest.limit = 20000)
 #to run the dashboard, need to install development version of Quarto:
@@ -40,12 +35,12 @@ emm_options(lmerTest.limit = 20000)
 ```
 
 ```{r}
+
 #Read and combine data files
 files = Sys.glob('data/batch 1/*.csv')
 data = files %>%
   map(~ read_csv(., show_col_types = F)) %>% 
   reduce(bind_rows)
-
 
 #Preprocess
 data = data %>% 
@@ -54,52 +49,35 @@ data = data %>%
   mutate(age = pick(everything()) %>% 
            filter(part_of_expt == 'demographics') %>% 
            pull(`demo_2--response`),
-         gender = pick(everything()) %>% 
-           filter(part_of_expt == 'demographics') %>% 
-           pull(`demo_1--response`),
-         race = pick(everything()) %>% 
-           filter(part_of_expt == 'demographics') %>% 
-           pull(`demo_0--response`),
-         polparty = pick(everything()) %>% 
-           filter(part_of_expt == 'party_choice') %>% 
-           pull(responses) %>% 
-           enter_object('Q0') %>% 
-           pull(`..JSON`) %>% 
-           pluck(1),
-         polid_before = pick(everything()) %>% 
-           filter(part_of_expt == 'party_confidence_before') %>% 
-           pull(response),
-         polid_after = pick(everything()) %>% 
-           filter(part_of_expt == 'party_confidence_after') %>% 
-           pull(response),
-         groupid = pick(everything()) %>% 
-           filter(part_of_expt == 'party_group_confidence') %>% 
-           pull(response),
-         #did they pass ALL attention checks
-         passedattn = all(
-           #heart attack attention check
-           pick(everything()) %>% 
+           gender = pick(everything()) %>% 
+             filter(part_of_expt == 'demographics') %>% 
+             pull(`demo_1--response`),
+           race = pick(everything()) %>% 
+             filter(part_of_expt == 'demographics') %>% 
+             pull(`demo_0--response`),
+           #did they pass ALL attention checks
+           passedattn = all(
+             #heart attack attention check
+             pick(everything()) %>% 
              filter(part_of_expt == 'attentioncheck_heart') %>% 
              pull(`attention_check_fatal_correctness`) == 'correct', 
-           #sorting attention check
-           pick(everything()) %>% 
+             #sorting attention check
+             pick(everything()) %>% 
              filter(part_of_expt == 'attentioncheck_sort') %>% 
              pull(`attention_check_sort_correctness`) == 'correct'),
-         #What was the participant's last opinion
-         participant_lastopinion = pick(everything()) %>% 
-           filter(opinion_round == max(opinion_round, na.rm = T)) %>% 
-           pull(participant_response),
-         #What was the prediction about the new agent's opinion?
-         prediction = pick(everything()) %>% 
-           filter(part_of_expt == 'prediction') %>% 
-           pull(agreement_prediction)) %>% 
-         #fix programming error - UNSURE ABOUT THIS...
-         # participant_response = ifelse(participant_response == 'agree',  'disagree', 'agree'),
-         # response_correctness = ifelse(participant_response == stim_opinion, 1, 0)) %>% 
-  #correct for programming error (only use for V3/4/5/6 and Self 1)
-  mutate(prediction = ifelse(prediction == 'agree',  'disagree', 'agree')) %>% 
-  #Did new agent prediction match participant opinion on last round?
-  mutate(pred_par = participant_lastopinion == prediction)
+           #What was the majority opinion on last round
+           majority_lastopinion = pick(everything()) %>% 
+             filter(opinion_round == max(opinion_round, na.rm = T)) %>% 
+             count(stim_opinion) %>% 
+             slice_max(n) %>% 
+           pull(stim_opinion)%>% 
+           ifelse(length(.) < 2, ., NA), #if no majority, make NA
+           #What was the prediction about the new agent's opinion?
+           prediction = pick(everything()) %>% 
+             filter(part_of_expt == 'prediction') %>% 
+             pull(agreement_prediction)) %>% 
+    #Did new agent prediction match majority opinion on last round?
+    mutate(pred_maj = majority_lastopinion == prediction)
 ```
 
 # Checks
@@ -110,18 +88,18 @@ data = data %>%
 #| title: Passed
 data %>% 
   filter(passedattn == T) %>% 
-  select(SubjID, age, race, gender, polparty, Deviant_threshold) %>% 
+  select(SubjID, age, race, gender, Deviant_threshold) %>% 
   distinct() %>% 
-  table1(~age+ race+ gender + polparty | Deviant_threshold, .)
+  table1(~age+ race+ gender | Deviant_threshold, .)
 ```
 
 ```{r}
 #| title: Failed
 data %>% 
   filter(passedattn == F) %>% 
-  select(SubjID, age, race, gender, polparty, Deviant_threshold) %>% 
+  select(SubjID, age, race, gender, Deviant_threshold) %>% 
   distinct() %>% 
-  table1(~age+ race+ gender + polparty | Deviant_threshold, .)
+  table1(~age+ race+ gender | Deviant_threshold, .)
 ```
 
 ```{r}
@@ -139,8 +117,7 @@ data = data %>%
 
 #Process the learning data
 learningtask = data %>%
-  filter(part_of_expt == 'learning_task' &
-           !grepl('participant', opinion_round)) %>% 
+  filter(part_of_expt == 'learning_task') %>% 
   mutate(corrresp = ifelse(response_correctness == 'correct', 1, 0))
 
 # Calculate averages
@@ -174,13 +151,13 @@ learningavgs = learningtask %>%
   xlab('Round') +
   ylab("Accuracy")+
   facet_grid(.~ Deviant_threshold) +
+  scale_x_continuous(breaks = seq(0, max(learningavgs$opinion_round),2),
+                     labels = seq(0, max(learningavgs$opinion_round),2) + 1) +
   scale_y_continuous(labels = seq(0,100,10),
                      breaks = seq(0,100,10),
                      limits = c(0,100)) +
   scale_color_discrete(name = 'Deviation')) %>% 
   ggplotly()
-
-ggsave('figs/exp4-learning.eps', device = cairo_ps, height = 2.5, width = 5)
 ```
 
 ```{r}
@@ -218,8 +195,8 @@ learningavgs = learningtask %>%
   xlab('Round') +
   ylab("Accuracy")+
   facet_grid(.~ Deviant_threshold) +
-    scale_x_discrete(breaks = seq(0, max(learningavgs$opinion_round)),
-                       labels = seq(0, max(learningavgs$opinion_round)) + 1) +
+  scale_x_continuous(breaks = seq(0, max(learningavgs$opinion_round),2),
+                     labels = seq(0, max(learningavgs$opinion_round),2) + 1) +
   scale_y_continuous(labels = seq(0,100,10),
                      breaks = seq(0,100,10),
                      limits = c(0,100)) +
@@ -228,11 +205,11 @@ learningavgs = learningtask %>%
 ```
 
 ```{r}
-#| title: Majority
+#| title: Non-deviants
 
 # Calculate averages
 learningavgs = learningtask %>% 
-  filter(stim_deviance == 'majority') %>% 
+  filter(stim_deviance == 'nondeviant') %>% 
   # First find averages by participants
   group_by(SubjID, Deviant_threshold, opinion_round) %>% 
   summarize(subaccuracy = mean(corrresp) *100) %>% 
@@ -262,25 +239,27 @@ learningavgs = learningtask %>%
   xlab('Round') +
   ylab("Accuracy")+
   facet_grid(.~ Deviant_threshold) +
-  scale_x_discrete(breaks = seq(0, max(learningavgs$opinion_round)),
-                     labels = seq(0, max(learningavgs$opinion_round)) + 1) +
+  scale_x_continuous(breaks = seq(0, max(learningavgs$opinion_round),2),
+                     labels = seq(0, max(learningavgs$opinion_round),2) + 1) +
   scale_y_continuous(labels = seq(0,100,10),
                      breaks = seq(0,100,10),
                      limits = c(0,100)) +
   scale_color_discrete(name = 'Deviation')) %>% 
   ggplotly()
+
+ggsave('figs/exp1b-learning.eps', device = cairo_ps, height = 2.5, width = 5)
 ```
 
-### Model {.tabset title="Learning Analysis"}
+### Model {.tabset title="NonDeviant Analysis"}
 
 ```{r}
 #| title: Model
 
-learningmod = learningtask %>%
+learningmod = learningtask %>% 
+  filter(stim_deviance == 'nondeviant') %>% 
   mutate(corrresp = as.factor(corrresp),
          Deviant_threshold = factor(Deviant_threshold,
-                                    levels= seq(0,1,.25)),
-         opinion_round = as.numeric(opinion_round)) %>%
+                                    levels= seq(0,1,.25))) %>% 
   glmer(corrresp ~ opinion_round * Deviant_threshold +
         (opinion_round | SubjID) +
         (1 | stim_person_name),
@@ -308,21 +287,14 @@ summary(emtrends(learningmod, ~ 1, var="opinion_round"), infer= c(T,T))
 summary(emmeans(learningmod, pairwise ~ Deviant_threshold, infer= c(T,T)))
 ```
 
-```{r}
-#| title: Interaction
-
-#interaction
-summary(emtrends(learningmod, pairwise ~ Deviant_threshold, var = 'opinion_round', infer= c(T,T)))
-```
-
 # Clustering
 
-## Similarity analysis 
+## Similarity analysis
 
-### Plots {.tabset title="Similarity Analysis"}
+### Plot
 
 ```{r}
-#| title: Plot
+#| title: Similarity Plot
 
 #Code the pairs
 similarity = data %>% 
@@ -334,19 +306,7 @@ similarity = data %>%
            str_remove('[ M]') %>% 
            str_remove('[F]') %>% 
            str_remove('[1-4]')) %>% 
-  #We are simplifying the pairs as match (DD, MM, PM) vs mismatch (DM, PD)
-  mutate(targetpair = case_when(devpair == 'participant,majority'| devpair == 'majority,participant' ~ 'Match',
-                                devpair == 'participant,deviant'| devpair == 'deviant,participant' ~ 'Mismatch',
-                                devpair == 'majority,majority' ~ 'Match',
-                                devpair == 'deviant,deviant' ~ 'Match',
-                                devpair == 'deviant,majority' | devpair == 'majority,deviant' ~ 'Mismatch')) %>% 
-  mutate(targetpair = factor(targetpair, levels = c('Mismatch', 'Match')))
-  #use the following targetpair definitions instead if want the analysis that more comprehensively accounts for the experimental design
-  # mutate(targetpair = case_when(devpair == 'participant,majority'| devpair == 'majority,participant' ~ 'PM',
-  #                               devpair == 'participant,deviant'| devpair == 'deviant,participant' ~ 'PD',
-  #                               devpair == 'majority,majority' ~ 'MM',
-  #                               devpair == 'deviant,deviant' ~ 'DD',
-  #                               devpair == 'deviant,majority' | devpair == 'majority,deviant' ~ 'DM')) 
+  mutate(targetpair = ifelse(devpair == 'deviant,nondeviant' | devpair == 'nondeviant,deviant', 'DN', 'NN')) 
 
 similarity_sub = similarity %>% 
   group_by(SubjID, Deviant_threshold, targetpair) %>% 
@@ -386,52 +346,10 @@ similarity_avgs = similarity_sub %>%
                       color=targetpair),
                   width=.2,
                   position = position_nudge(x=.25))+
-    theme(axis.text.x = element_text(angle = -30, hjust = 1))+
-    guides(fill = 'none', color='none')) %>% 
+  guides(fill = 'none', color='none')) %>% 
   ggplotly()
 
-ggsave('figs/exp4-similarity.eps', device = cairo_ps, height = 2.5, width = 4.5)
-```
-
-```{r}
-#| title: Plot x PolParty
-
-similarity_sub = similarity %>%
-  group_by(SubjID, Deviant_threshold, polparty, targetpair) %>%
-  summarize(subavg = mean(response))
-
-similarity_avgs = similarity_sub %>%
-  group_by(Deviant_threshold, polparty, targetpair) %>%
-  summarize(avg = mean(subavg),
-            n = n(),
-            ci = qt(0.975,df=n-1)*sd(subavg)/sqrt(n),
-            l.ci = avg-ci,
-            h.ci = avg+ci)
-
-(similarity_sub %>%
-    ggplot(aes(x = targetpair,
-               y = subavg))+
-    geom_violin()+
-    geom_point(alpha = .2)+
-    facet_grid(polparty~Deviant_threshold)+
-    scale_y_continuous(name= 'Average Similarity',
-                       breaks = seq(0,100,10))+
-    theme_bw()+
-    xlab('')+
-    geom_point(data=similarity_avgs,
-               aes(y=avg,
-                   color=targetpair),
-               size = 3,
-               position = position_nudge(x=.25))+
-    geom_errorbar(data=similarity_avgs,
-                  aes(y=avg,
-                      ymax=h.ci,
-                      ymin=l.ci,
-                      color=targetpair),
-                  width=.2,
-                  position = position_nudge(x=.25))+
-  guides(fill = 'none', color='none')) %>%
-  ggplotly()
+ggsave('figs/exp1b-similarity.eps', device = cairo_ps, height = 2.5, width = 4.5)
 ```
 
 ### Model {.tabset title="Similarity Analysis"}
@@ -439,7 +357,7 @@ similarity_avgs = similarity_sub %>%
 ```{r}
 #| title: Model
 
-similaritymod = similarity %>%
+similaritymod = similarity %>% 
   lmer(response ~ targetpair*Deviant_threshold +
          (targetpair|SubjID),
        REML = F,
@@ -460,11 +378,11 @@ summary(emtrends(similaritymod, pairwise ~ targetpair, var = 'Deviant_threshold'
 #| title: "2LineTest"
 
 belowmod = similarity_sub %>% 
-  filter(Deviant_threshold <= .5 & targetpair == 'Match') %>%
+  filter(Deviant_threshold <= .5 & targetpair == 'NN') %>%
   lm(subavg ~ Deviant_threshold, data = .)
 
 abovemod = similarity_sub %>% 
-  filter(Deviant_threshold >= .5 & targetpair == 'Match') %>%
+  filter(Deviant_threshold >= .5 & targetpair == 'NN') %>%
   lm(subavg ~ Deviant_threshold, data = .)
 
 options(tibble.width = Inf)
@@ -594,9 +512,9 @@ for(i in 1:length(subs$SubjID)){
 }
 
 #save the probability matrices & data frame so only have to run once (until something needs changing)
-saveRDS(submats, file = "subsimmats.rds")
-saveRDS(subprobmats, file = "subprobmats.rds")
-saveRDS(subs, file = "subs-kestimates.rds")
+saveRDS(submats, file = "ISM estimates/subs-simmats.rds")
+saveRDS(subprobmats, file = "ISM estimates/subs-probmats.rds")
+saveRDS(subs, file = "ISM estimates/subs-kestimates.rds")
 ```
 
 
@@ -604,8 +522,8 @@ saveRDS(subs, file = "subs-kestimates.rds")
 #| title: ISM Plot
 
 #Read in data made from above code chunks
-subprobmats = readRDS('subprobmats.rds')
-subs = readRDS('subs-kestimates.rds')
+subprobmats = readRDS('ISM estimates/subs-probmats.rds')
+subs = readRDS('ISM estimates/subs-kestimates.rds')
 
 kplot = subs %>% 
   group_by(Deviant_threshold) %>% 
@@ -619,6 +537,9 @@ kplot = subs %>%
 ggplot(aes(x = as.factor(Deviant_threshold),
            y = k,
            group = Deviant_threshold))+ 
+  geom_violin(draw_quantiles = c(0.25, .5, 0.75),
+              linetype = "dashed",
+              color = 'darkblue') +
   geom_violin(fill="transparent") +
   geom_point(alpha = .2,
              size = .7)+
@@ -639,7 +560,7 @@ ggplot(aes(x = as.factor(Deviant_threshold),
   scale_x_discrete(name = 'Deviance')) %>% 
   ggplotly()
 
-ggsave('figs/exp4-kcluster.eps', device = cairo_ps, height = 2.5, width = 2.5)
+ggsave('figs/exp1b-kcluster.eps', device = cairo_ps, height = 2.5, width = 2.5)
 ```
 
 ### Model {.tabset title="ISM Analysis"}
@@ -679,7 +600,6 @@ emmeans(ismmod, ~ Deviant_threshold) %>%
 
 #Pull out confidence rating into column
 predictions = data %>% 
-  group_by(SubjID) %>% 
   mutate(confidence = pick(everything()) %>% 
            filter(part_of_expt == 'prediction_confidence') %>% 
            pull(response)) %>% 
@@ -727,7 +647,7 @@ predictions_avg = predictions %>%
                        name = 'Deviance')) %>% 
   ggplotly()
 
-ggsave('figs/exp4-confidence.eps', device = cairo_ps, height = 2.5, width = 2.5)
+ggsave('figs/exp1b-confidence.eps', device = cairo_ps, height = 2.5, width = 2.5)
 ```
 
 ### Model {.tabset title="Prediction Analysis"}
@@ -775,21 +695,19 @@ anova(predictionmod)
 summary(emmeans(predictionmod, pairwise ~ deviance), infer=c(T,T))
 ```
 
-## Moderator Analysis 
-
-### Moderator Last Opinion {.tabset title="Moderator: Last Opinion"}
+## Moderator Analysis {.tabset title="Moderator: Last Opinion"}
 
 ```{r}
 #| title: Table
 
-table1(~pred_par | Deviant_threshold, predictions)
+table1(~pred_maj | Deviant_threshold, predictions)
 ```
 
 ```{r}
 #| title: Plot
 
-predictions_par_avg = predictions %>% 
-  group_by(Deviant_threshold, pred_par) %>% 
+predictions_maj_avg = predictions %>% 
+  group_by(Deviant_threshold, pred_maj) %>% 
   summarize(n = n(),
             m.conf = mean(confidence),
             ci = qt(0.975,df=n-1)*sd(confidence)/sqrt(n),
@@ -806,12 +724,12 @@ predictions_par_avg = predictions %>%
     geom_violin(fill="transparent") +
     geom_point(alpha = .2,
              size = .7)+
-    geom_point(data = predictions_par_avg,
+    geom_point(data = predictions_maj_avg,
                aes(y = m.conf),
                color = 'darkblue',
                position = position_nudge(-.15),
                shape = 5)+
-    geom_errorbar(data = predictions_par_avg,
+    geom_errorbar(data = predictions_maj_avg,
                   aes(y = m.conf,
                       ymax=h.ci,
                       ymin=l.ci),
@@ -826,8 +744,8 @@ predictions_par_avg = predictions %>%
                      limits = c(0,100))+
     scale_x_discrete(labels = seq(0,1,.25),
                      breaks = seq(0,1,.25))+
-    facet_grid(~pred_par)+
-    ggtitle("Chose own opinion?")) %>% 
+    facet_grid(~pred_maj)+
+    ggtitle("Chose majority opinion?")) %>% 
   ggplotly()
 ```
 
@@ -836,35 +754,35 @@ predictions_par_avg = predictions %>%
 
 belowmod = predictions %>% 
   filter(Deviant_threshold <= .5) %>%
-  group_by(pred_par) %>% 
+  group_by(pred_maj) %>% 
   do(tidy(lm(confidence ~ Deviant_threshold, data = .), conf.int=T)) %>% 
   filter(term !="(Intercept)") %>% 
   mutate(id = 'below_.5')
 belowmod.extra = predictions %>% 
   filter(Deviant_threshold <= .5) %>%
-  group_by(pred_par) %>% 
+  group_by(pred_maj) %>% 
   do(glance(lm(confidence ~ Deviant_threshold, data = .), conf.int=T)) %>% 
   mutate(id = 'below_.5') %>% 
-  select(pred_par, id, r.squared, adj.r.squared, df, df.residual, nobs)
+  select(pred_maj, id, r.squared, adj.r.squared, df, df.residual, nobs)
 belowmod = left_join(belowmod, belowmod.extra)
 
 abovemod = predictions %>% 
   filter(Deviant_threshold >= .5) %>%
-  group_by(pred_par) %>% 
+  group_by(pred_maj) %>% 
   do(tidy(lm(confidence ~ Deviant_threshold, data = .), conf.int=T)) %>% 
   filter(term !="(Intercept)")%>% 
   mutate(id = 'above_.5') 
 abovemod.extra = predictions %>% 
   filter(Deviant_threshold >= .5) %>%
-  group_by(pred_par) %>% 
+  group_by(pred_maj) %>% 
   do(glance(lm(confidence ~ Deviant_threshold, data = .), conf.int=T)) %>% 
   mutate(id = 'above_.5') %>% 
-  select(pred_par, id, r.squared, adj.r.squared, df, df.residual, nobs)
+  select(pred_maj, id, r.squared, adj.r.squared, df, df.residual, nobs)
 abovemod = left_join(abovemod, abovemod.extra)
 
 bind_rows(belowmod, abovemod) %>% 
-  arrange(pred_par, desc(id)) %>% 
-  relocate(pred_par, id) %>% 
+  arrange(pred_maj, desc(id)) %>% 
+  relocate(pred_maj, id) %>% 
   na.omit()
 ```
 
@@ -873,166 +791,27 @@ bind_rows(belowmod, abovemod) %>%
 
 predictions %>% 
   mutate(deviance = as.factor(Deviant_threshold)) %>% 
-  lm(confidence ~ deviance*pred_par, .) %>% 
+  lm(confidence ~ deviance*pred_maj, .) %>% 
   anova()
 ```
 
-# Identification
-
-## Stimulus Identification {.tabset title="ID with Stimulus Group"}
+# Misc
 
 ```{r}
-#| title: Plot
+#| title: Order of deviant across rounds
 
-stimid = data %>% 
-  select(SubjID, Deviant_threshold, groupid) %>% 
-  distinct()
+data %>% 
+  filter(stim_deviance == 'deviant' & part_of_expt == 'learning_task') %>% 
+  mutate(trialnum = str_sub(dynamicVars_key, -1)) %>% 
+  table1(~ trialnum | opinion_round, ., caption= 'Opinion Round')
 
-stimid_avg = stimid %>% 
-  group_by(Deviant_threshold) %>% 
-  summarize(n = n(),
-            m.conf = mean(groupid),
-            ci = qt(0.975,df=n-1)*sd(groupid)/sqrt(n),
-            l.ci= m.conf-ci,
-            h.ci = m.conf+ci)
-(stimid %>% 
-    ggplot(aes(x = as.factor(Deviant_threshold),
-               y = groupid,
-               group = Deviant_threshold))+ 
-    geom_violin(draw_quantiles = c(0.25, .5, 0.75),
-              linetype = "dashed",
-              color = 'darkblue') +
-    geom_violin(fill="transparent") +
-    geom_point(alpha = .2,
-             size = .7)+
-    geom_point(data = stimid_avg,
-               aes(y = m.conf),
-               color = 'darkblue',
-               position = position_nudge(-.15),
-               shape = 5)+
-    geom_errorbar(data = stimid_avg,
-                  aes(y = m.conf,
-                      ymax=h.ci,
-                      ymin=l.ci),
-                  color = 'darkblue',
-                  width = .2,
-                  position = position_nudge(-.15))+
-    theme_bw()+
-    xlab('Deviance')+
-    ylab("Identification")+
-  scale_y_continuous(labels = seq(0,100,10),
-                     breaks = seq(0,100,10),
-                     limits = c(0,100))+
-    scale_x_discrete(labels = seq(0,1,.25),
-                     breaks = seq(0,1,.25))) %>% 
-  ggplotly()
-
-```
-
-```{r}
-#| title: Model
-
-stimidmod = stimid %>% 
-  lm(groupid ~ Deviant_threshold, .) 
-
-stimidmod %>% 
-  anova()
-```
-
-```{r}
-#| title: Deviance
-
-summary(emtrends(stimidmod, ~ 1, var = "Deviant_threshold"), infer=c(T,T))
-```
-
-## Political Identification {.tabset title="ID with PolParty"}
-
-```{r}
-#| title: Plot
-
-polid = data %>% 
-  select(SubjID, Deviant_threshold, polid_before, polid_after) %>% 
-  distinct() %>% 
-  pivot_longer(
-    cols = starts_with('polid'),
-    names_to = 'time',
-    values_to = 'id',
-    names_prefix = 'polid_'
-  ) %>% 
-  mutate(time = factor(time,
-                       levels = c('before', 'after')),
-         Deviant_threshold = factor(Deviant_threshold,
-                                    levels = seq(0,1,.25)))
-
-polid_avg = polid %>% 
-  group_by(Deviant_threshold, time) %>% 
-  summarize(n = n(),
-            m.conf = mean(id),
-            ci = qt(0.975,df=n-1)*sd(id)/sqrt(n),
-            l.ci= m.conf-ci,
-            h.ci = m.conf+ci)
-
-(polid %>% 
-    ggplot(aes(x = time,
-               y = id))+ 
-    geom_violin(aes(fill = time))+
-    geom_line(aes(group = SubjID),
-              alpha = .2) +
-    geom_point(data = polid_avg,
-               aes(y = m.conf),
-               #color = 'red',
-               size = 2)+
-    geom_errorbar(data = polid_avg,
-                  aes(y = m.conf,
-                      ymax=h.ci,
-                      ymin=l.ci),
-                  #color = 'red',
-                  width = .1)+
-    #geom_point(alpha = .2)+
-    theme_bw()+
-    xlab('Time')+
-    ylab("Identification")+
-  scale_y_continuous(labels = seq(0,100,10),
-                     breaks = seq(0,100,10),
-                     limits = c(0,100))+
-    facet_grid(. ~ Deviant_threshold)+
-    guides(fill = 'none')) %>% 
-  ggplotly()
-
-```
-
-```{r}
-#| title: Model
-
-polmod = polid %>% 
-  lmer(id ~ Deviant_threshold*time +
-         (1|SubjID),
-       REML = F,
-           control= lmerControl(optimizer="bobyqa",
-                                optCtrl=list(maxfun=500000)),
-       data = .)
-
-anova(polmod)
-```
-
-```{r}
-#| title: Time
-
-summary(emmeans(polmod, pairwise ~ time, infer= c(T,T)))
 ```
 
 # Notes
 
-::: {.card title="Things to note"}
-For the similarity ratings: 
-
-- match (DD, MM, PM) vs mismatch (DM, PD), D = deviant, M = majority, P = participant
-
-:::
-
 ::: {.card title="Unresolved"}
 
-  - Does it make sense to break into deviant/nondeviant learning given design?
+- all good
 
-- Last opinion analysis, how to operationalize given the design.
+
 :::

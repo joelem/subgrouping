@@ -7,13 +7,18 @@ format:
 
 # Main summary
 
-## Overview {.tabset title="Overview"}
+## Overview {.tabset title=""}
 
-::: {.card title="Table"}
+::: {.card title="Overview"}
+This is a hierarchical Quarto dashboard that comprehensively shows the results for each experiment. 
 
+Use the navigation menu at the top to navigate between experiments and then the navigation menus in each dashboard screen to navigate between analyses or extra information.
+:::
+
+::: {.card title="Results Table"}
 [Google doc here](https://docs.google.com/presentation/d/128HIh6xuP3iQVyFcwcPrlmyELyy4RhOKI6fXldFYyAI/edit?usp=sharing)
 
-![](summarytable.png)
+![](Study Materials/summarytable.png)
 :::
 
 
@@ -25,7 +30,7 @@ format:
 
 - Is this the first paper that tests continuous deviance to identify threshold of when deviant gets pushed out? 
 
-- Confidence only u-shaped when it’s Ps own group and groups are explicitly labeled suggesting increasing stereotype change in 1b’s and only subtyping in self studies
+- Confidence only u-shaped when it’s Ps own group and groups are explicitly labeled suggesting increasing stereotype change in 1b’s and only subtyping in Experiments - Self
 
 - Look more closely at non-non similarity ratings in 1b; these drop too as deviance increases! Whole structure is changing some bc of one person. 
 
@@ -48,74 +53,74 @@ Potential Intermediary Studies to bridge 1b and self:
 
 ::: {.card title="Materials"}
 
-![](Design.pdf){height=100%}
+![](Study Materials/Study Designs.pdf){height=100%}
 
 :::
 
 
 # Exp 1a
 
-<iframe src="Study 1b/v1/Subgrouping_Analysis.html" width="100%" height="100%">
+<iframe src="Experiments/v1/Subgrouping_Analysis.html" width="100%" height="100%">
 
 </iframe>
 
 # Exp 1b
 
-<iframe src="Study 1b/v2/Subgrouping_Analysis.html" width="100%" height="100%">
+<iframe src="Experiments/v2/Subgrouping_Analysis.html" width="100%" height="100%">
 
 </iframe>
 
 # Exp 1c
 
-<iframe src="Study 1b/v3/Subgrouping_Analysis.html" width="100%" height="100%">
+<iframe src="Experiments/v3/Subgrouping_Analysis.html" width="100%" height="100%">
 
 </iframe>
 
 # Exp 1d
 
-<iframe src="Study 1b/v4/Subgrouping_Analysis.html" width="100%" height="100%">
+<iframe src="Experiments/v4/Subgrouping_Analysis.html" width="100%" height="100%">
 
 </iframe>
 
 
 # Exp 2
 
-<iframe src="Study 1b/v7/Subgrouping_Analysis.html" width="100%" height="100%">
+<iframe src="Experiments/v7/Subgrouping_Analysis.html" width="100%" height="100%">
 
 </iframe>
 
 # Exp 3
 
-<iframe src="Self studies/self_pol1/Subgrouping_Analysis.html" width="100%" height="100%">
+<iframe src="Experiments - Self/self_pol1/Subgrouping_Analysis.html" width="100%" height="100%">
 
 </iframe>
 
 # Exp 4
 
-<iframe src="Self studies/self_pol2/Subgrouping_Analysis.html" width="100%" height="100%">
+<iframe src="Experiments - Self/self_pol2/Subgrouping_Analysis.html" width="100%" height="100%">
 
 </iframe>
 
 # V5
 
-<iframe src="Study 1b/v5/Subgrouping_Analysis.html" width="100%" height="100%">
+<iframe src="Experiments/v5/Subgrouping_Analysis.html" width="100%" height="100%">
 
 </iframe>
 
 # V6
 
-<iframe src="Study 1b/v6/Subgrouping_Analysis.html" width="100%" height="100%">
+<iframe src="Experiments/v6/Subgrouping_Analysis.html" width="100%" height="100%">
 
 </iframe>
 
-# SortV1
+# Sort V1
 
-<iframe src="Sorting Pilot/v1/Subgrouping_Analysis.html" width="100%" height="100%">
+<iframe src="Experiments - Sorting/v1/Subgrouping_Analysis.html" width="100%" height="100%">
 
 </iframe>
 
-# SortV1A
+# Sort V1A
 
-<iframe src="Sorting Pilot/v1A/Subgrouping_Analysis.html" width="100%" height="100%">
+<iframe src="Experiments - Sorting/v1A/Subgrouping_Analysis.html" width="100%" height="100%">
 
 </iframe>

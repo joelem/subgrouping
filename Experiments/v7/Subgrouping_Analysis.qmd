@@ -1,5 +1,5 @@
 ---
-title: "Subgrouping V4"
+title: "Subgrouping V7"
 format: 
   dashboard:
     theme: darkly
@@ -9,19 +9,17 @@ format:
 
 ::: {.card title="Summary"}
 
-Testing the effect of deviance on similarity-based structure and certainty.
+Bridge between early 1B studies and self studies
 
-Hypothesis: We predict that as a new agent’s deviance from the group stereotype increases there will be a transition from group updating to subgroup formation to subtype formation. This will be reflected in participants’ similarity-rating derived dendrograms. Same as V3
+6 agents, 12 issues
 
 Method changes: 
 
-- only 25%/50%/75% deviancy
+- First instructions now include reference to political party (either Democratic or Republican”: “On the screens that follow you're going to learn about a collection of registered [party] we polled on a series of political issues.” 
 
-- 600 participants (increased from 300)
+- After completing the new agent task, participants then selected the party they most identified with (Democratic, Republican, Independent, or none of these) and reported how strongly they identify with their party on a sliding scale from “not at all” to “very strongly”. 
 
-- PNS scale added
-
-Note:  data for prediction values are corrected in R script due to coding error
+- PNS scale added.
 
 :::
 
@@ -36,7 +34,8 @@ pacman::p_load(tidyverse,
                lme4,
                emmeans,
                lmerTest,
-               jsonlite)
+               jsonlite,
+               tidyjson)
 emm_options(lmer.df = 'satterthwaite')
 emm_options(lmerTest.limit = 20000)
 #to run the dashboard, need to install development version of Quarto:
@@ -64,6 +63,11 @@ data = data %>%
          race = pick(everything()) %>% 
            filter(part_of_expt == 'demographics') %>% 
            pull(`demo_0--response`),
+         polparty = pick(everything()) %>% 
+           filter(part_of_expt == 'party_choice') %>% 
+           pull(responses) %>% 
+           spread_all %>% 
+           pull(Q0),
          #did they pass ALL attention checks
          passedattn = all(
            #heart attack attention check
@@ -86,9 +90,15 @@ data = data %>%
            filter(part_of_expt == 'prediction') %>% 
            pull(agreement_prediction)) %>% 
   #correct for programming error (only use for V3/4/5/6)
-  mutate(prediction = ifelse(prediction == 'agree',  'disagree', 'agree')) %>% 
+  #mutate(prediction = ifelse(prediction == 'agree',  'disagree', 'agree')) %>% 
   #Did new agent prediction match majority opinion on last round?
-  mutate(pred_maj = majority_lastopinion == prediction)
+  mutate(pred_maj = majority_lastopinion == prediction) %>% 
+  #does self-polparty match the agents' polparty?
+  mutate(same_party = case_when(polparty == 'Democratic' &
+                                  Condition == 'Democrat' ~ "Ingroup",
+                                polparty == 'Republican' &
+                                  Condition == 'Republican' ~ "Ingroup",
+                                .default = 'Outgroup'))
 
 #calculate the PNS score (only for V3/V4/V5/V6/V7)
 data = data %>% 
@@ -287,7 +297,7 @@ learningavgs = learningtask %>%
   scale_color_discrete(name = 'Deviation')) %>% 
   ggplotly()
 
-ggsave('figs/exp1d-learning.eps', device = cairo_ps, height = 2.5, width = 5)
+ggsave('figs/exp2-learning.eps', device = cairo_ps, height = 2.5, width = 5)
 ```
 
 ### Model {.tabset title="NonDeviant Analysis"}
@@ -389,7 +399,7 @@ similarity_avgs = similarity_sub %>%
   guides(fill = 'none', color='none')) %>% 
   ggplotly()
 
-ggsave('figs/exp1d-similarity.eps', device = cairo_ps, height = 2.5, width = 4.5)
+ggsave('figs/exp2-similarity.eps', device = cairo_ps, height = 2.5, width = 4.5)
 ```
 
 ### Model {.tabset title="Similarity Analysis"}
@@ -552,9 +562,9 @@ for(i in 1:length(subs$SubjID)){
 }
 
 #save the probability matrices & data frame so only have to run once (until something needs changing)
-saveRDS(submats, file = "subsimmats.rds")
-saveRDS(subprobmats, file = "subprobmats.rds")
-saveRDS(subs, file = "subs-kestimates.rds")
+saveRDS(submats, file = "ISM estimates/subs-simmats.rds")
+saveRDS(subprobmats, file = "ISM estimates/subs-probmats.rds")
+saveRDS(subs, file = "ISM estimates/subs-kestimates.rds")
 ```
 
 
@@ -562,8 +572,8 @@ saveRDS(subs, file = "subs-kestimates.rds")
 #| title: ISM Plot
 
 #Read in data made from above code chunks
-subprobmats = readRDS('subprobmats.rds')
-subs = readRDS('subs-kestimates.rds')
+subprobmats = readRDS('ISM estimates/subs-probmats.rds')
+subs = readRDS('ISM estimates/subs-kestimates.rds')
 
 kplot = subs %>% 
   group_by(Deviant_threshold) %>% 
@@ -600,7 +610,7 @@ ggplot(aes(x = as.factor(Deviant_threshold),
   scale_x_discrete(name = 'Deviance')) %>% 
   ggplotly()
 
-ggsave('figs/exp1d-kcluster.eps', device = cairo_ps, height = 2.5, width = 2.5)
+ggsave('figs/exp2-kcluster.eps', device = cairo_ps, height = 2.5, width = 2.5)
 ```
 
 ### Model {.tabset title="ISM Analysis"}
@@ -688,7 +698,7 @@ predictions_avg = predictions %>%
                        name = 'Deviance')) %>% 
   ggplotly()
 
-ggsave('figs/exp1d-confidence.eps', device = cairo_ps, height = 2.5, width = 2.5)
+ggsave('figs/exp2-confidence.eps', device = cairo_ps, height = 2.5, width = 2.5)
 ```
 
 ### Model {.tabset title="Prediction Analysis"}
@@ -737,6 +747,107 @@ summary(emmeans(predictionmod, pairwise ~ deviance), infer=c(T,T))
 ```
 
 ## Moderator Analysis 
+
+### Moderator Last Opinion {.tabset title="Moderator: Ingroup"}
+
+```{r}
+#| title: Table
+
+table1(~ as.factor(Deviant_threshold)| polparty+same_party , predictions)
+```
+
+```{r}
+#| title: Plot
+
+predictions_ig_avg = predictions %>%
+  group_by(Deviant_threshold, same_party) %>%
+  summarize(n = n(),
+            m.conf = mean(confidence),
+            ci = qt(0.975,df=n-1)*sd(confidence)/sqrt(n),
+            l.ci= m.conf-ci,
+            h.ci = m.conf+ci)
+
+(predictions %>%
+    ggplot(aes(x = as.factor(Deviant_threshold),
+               y = confidence,
+               group = Deviant_threshold))+
+    geom_violin(draw_quantiles = c(0.25, .5, 0.75),
+              linetype = "dashed",
+              color = 'darkblue') +
+    geom_violin(fill="transparent") +
+    geom_point(alpha = .2,
+             size = .7)+
+    geom_point(data = predictions_ig_avg,
+               aes(y = m.conf),
+               color = 'darkblue',
+               position = position_nudge(-.15),
+               shape = 5)+
+    geom_errorbar(data = predictions_ig_avg,
+                  aes(y = m.conf,
+                      ymax=h.ci,
+                      ymin=l.ci),
+                  color = 'darkblue',
+                  width = .2,
+                  position = position_nudge(-.15))+
+    theme_bw()+
+    xlab('Deviance')+
+    ylab("Confidence")+
+  scale_y_continuous(labels = seq(0,100,10),
+                     breaks = seq(0,100,10),
+                     limits = c(0,100))+
+    scale_x_discrete(labels = seq(0,1,.25),
+                     breaks = seq(0,1,.25))+
+    facet_grid(~same_party)+
+    ggtitle("Ingroup vs Outgroup")) %>%
+  ggplotly()
+```
+
+```{r}
+#| title: '2LineTest'
+
+belowmod = predictions %>%
+  filter(Deviant_threshold <= .5) %>%
+  group_by(same_party) %>%
+  do(tidy(lm(confidence ~ Deviant_threshold, data = .), conf.int=T)) %>%
+  filter(term !="(Intercept)") %>%
+  mutate(id = 'below_.5')
+belowmod.extra = predictions %>%
+  filter(Deviant_threshold <= .5) %>%
+  group_by(same_party) %>%
+  do(glance(lm(confidence ~ Deviant_threshold, data = .), conf.int=T)) %>%
+  mutate(id = 'below_.5') %>%
+  select(same_party, id, r.squared, adj.r.squared, df, df.residual, nobs)
+belowmod = left_join(belowmod, belowmod.extra)
+
+abovemod = predictions %>%
+  filter(Deviant_threshold >= .5) %>%
+  group_by(same_party) %>%
+  do(tidy(lm(confidence ~ Deviant_threshold, data = .), conf.int=T)) %>%
+  filter(term !="(Intercept)")%>%
+  mutate(id = 'above_.5')
+abovemod.extra = predictions %>%
+  filter(Deviant_threshold >= .5) %>%
+  group_by(same_party) %>%
+  do(glance(lm(confidence ~ Deviant_threshold, data = .), conf.int=T)) %>%
+  mutate(id = 'above_.5') %>%
+  select(same_party, id, r.squared, adj.r.squared, df, df.residual, nobs)
+abovemod = left_join(abovemod, abovemod.extra)
+
+bind_rows(belowmod, abovemod) %>%
+  arrange(same_party, desc(id)) %>%
+  relocate(same_party, id) %>%
+  na.omit()
+```
+
+```{r}
+#| title: Model
+
+predictions %>%
+  mutate(deviance = as.factor(Deviant_threshold)) %>%
+  lm(confidence ~ deviance*same_party, .) %>%
+  anova()
+```
+
 
 ### Moderator Last Opinion {.tabset title="Moderator: Last Opinion"}
 
@@ -952,11 +1063,12 @@ data %>%
 # Notes
 
 ::: {.card title="Things to note"}
-- The PNS moderator is a median split
+
+- The moderator for the prediction of the new agent's choice is operationalized as whether the prediction matched the majority opinion in the last opinion round
 
 :::
 
 ::: {.card title="Unresolved"}
-- all good
 
+- all good
 :::
