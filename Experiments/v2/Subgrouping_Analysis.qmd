@@ -37,6 +37,7 @@ emm_options(lmerTest.limit = 20000)
 ```{r}
 
 #Read and combine data files
+setwd('/Users/theoandre/Dropbox/Subgroup Experiment/Git_Analyses/Experiments/v2')
 files = Sys.glob('data/batch 1/*.csv')
 data = files %>%
   map(~ read_csv(., show_col_types = F)) %>% 
